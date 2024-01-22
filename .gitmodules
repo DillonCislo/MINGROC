@@ -1,0 +1,3 @@
+[submodule "include/external/NNIpp"]
+	path = include/external/NNIpp
+	url = https://github.com/DillonCislo/NNIpp.git
