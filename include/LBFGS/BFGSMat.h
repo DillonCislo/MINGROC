@@ -19,7 +19,7 @@
 #ifndef _BFGS_MAT_H_
 #define _BFGS_MAT_H_
 
-#include "../MINGROCpp/mingroInline.h"
+#include "../MINGROC/mingrocInline.h"
 #include <Eigen/Core>
 #include <vector>
 

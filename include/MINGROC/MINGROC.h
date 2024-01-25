@@ -110,7 +110,7 @@ namespace MINGROCpp {
 
       // #V by #V array. Holds a replicated version of 'm_vertexAreas' used
       // to calculate the update in the quasiconformal mapping
-      // Equal to m_vertexAreas.transpose().replicate(#V, 1)
+      // Equal to m_AV2D.transpose().replicate(#V, 1)
       Array m_AV2DMat;
 
       // #F by 1 list of face areas in the initial 3D surface
@@ -130,10 +130,6 @@ namespace MINGROCpp {
 
       // A vector of all vertex IDs in the bulk
       IndexVector m_bulkIDx;
-
-      // #2V by #2V sparse identity matrix. Used to calculate abbreviated gradients
-      // with respect to fully composed parameterization
-      Eigen::SparseMatrix<Scalar> m_speye;
 
       // Mesh Differential Operators ----------------------------------------------------
 
@@ -172,8 +168,10 @@ namespace MINGROCpp {
       // Natureal neighbor interpolation parameters
       NNIpp::NNIParam<Scalar> m_nniParam;
 
+      /*
       // The natural neighbor interpolant representing the final discrete surface
       NNIpp::NaturalNeighborInterpolant<Scalar> m_NNI;
+      */
 
       // Optimization Properties --------------------------------------------------------
 
@@ -240,9 +238,6 @@ namespace MINGROCpp {
       ///
       /// Inputs:
       ///
-      ///   finMap3D    #V by 3 list of vertex coordinates in the final 3D
-      ///               configuration
-      ///
       ///   mu      #V by 1 list of complex Beltrami coefficients specifying
       ///           the mapping corresponding to the minimum information
       ///           constant growth pattern
@@ -250,6 +245,8 @@ namespace MINGROCpp {
       ///   w       #V by 1 complex representation of the quasiconformal mapping
       ///           corresponding to the minimum information constant growth
       ///           pattern
+      ///
+      ///   NNI     A natural neighbor interpolant class for the final 3D surface
       ///
       /// Outputs:
       ///
@@ -261,6 +258,7 @@ namespace MINGROCpp {
       ///
       Scalar calculateEnergy (
           const CplxVector &mu, const CplxVector &w,
+          const NNIpp::NaturalNeighborInterpolant<Scalar> &NNI,
           Matrix &map3D, Vector &gamma ) const;
 
       ///
@@ -268,9 +266,6 @@ namespace MINGROCpp {
       /// configuration
       ///
       /// Inputs:
-      ///
-      ///   finMap3D    #V by 3 list of vertex coordinates in the final 3D
-      ///               configuration
       ///
       ///   mu      #V by 1 list of complex Beltrami coefficients specifying
       ///           the mapping corresponding to the minimum distance SEM
@@ -287,6 +282,9 @@ namespace MINGROCpp {
       ///
       ///   G4      #V by #V array. Coefficient of nu2 in the imaginary part of K
       ///
+      ///   NNI     A natural neighbor interpolant class for the final 3D surface
+      ///
+      ///
       /// Outputs:
       ///
       ///   E           The total energy for the input configuration
@@ -300,6 +298,7 @@ namespace MINGROCpp {
       Scalar calculateEnergyAndGrad (
           const CplxVector &mu, const CplxVector &w,
           const Array &G1, const Array &G2, const Array &G3, const Array &G4,
+          const NNIpp::NaturalNeighborInterpolant<Scalar> &NNI,
           CplxVector &gradMu, Matrix &map3D, Vector &gamma ) const;
 
       ///
@@ -373,7 +372,7 @@ namespace MINGROCpp {
       ///   x   #Vx2 2D vertex coordinates in the pullback space
       ///
       void buildMINGROCFromMesh( const IndexMatrix &F,
-          const Matrix &V, const &x );
+          const Matrix &V, const Matrix &x );
 
       ///
       /// Convert a stacked real vector into complex format
@@ -386,7 +385,19 @@ namespace MINGROCpp {
       ///
       ///   z   #N by 1 complex vector
       ///
-      MINGROC_INLINE void convertRealToComplex( const Vector &x, CplxVector &z );
+      MINGROC_INLINE void convertRealToComplex(
+          const Vector &x, CplxVector &z ) const;
+
+      /*
+      ///
+      /// Set the final surface interpolant object
+      ///
+      /// Inputs:
+      ///
+      ///   finMap3D  #Vx3 final surface coordinates
+      ///
+      void setFinalSurfaceInterpolant( const Matrix &finMap3D );
+      */
 
   };
 

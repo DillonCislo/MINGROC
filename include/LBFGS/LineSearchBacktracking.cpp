@@ -17,11 +17,10 @@
  */
 
 #include "LineSearchBacktracking.h"
+#include "../MINGROC/clipToUnitCircle.h"
 
 #include <stdexcept>
 #include <iostream>
-
-#include "../MINGROC/clipToUnitCircle.h"
 
 #include <igl/fast_find_self_intersections.h>
 
@@ -30,7 +29,8 @@
 ///
 template <typename Scalar, typename Index>
 void MINGROCpp::LineSearchBacktracking<Scalar, Index>::LineSearch(
-    const MINGROC<Scalar, Index> &mingro, const MINGROCParam<Scalar> &param,
+    const MINGROC<Scalar, Index> &mingroc, const MINGROCParam<Scalar> &param,
+    const NNIpp::NaturalNeighborInterpolant<Scalar> &NNI,
     const Eigen::Matrix<Index, Eigen::Dynamic, 1> &fixIDx,
     const Vector &drt, const CplxVector &dw, const Vector &grad,
     Scalar &fx, Vector &x, CplxVector &w, Scalar &step ) {
@@ -64,8 +64,16 @@ void MINGROCpp::LineSearchBacktracking<Scalar, Index>::LineSearch(
   CplxVector mu( numV, 1 );
 
   // Some helper variables to check for self-intersections
-  Matrix nullEE;
-  IndexMatrix nullIF, nullEV, nullEI;
+  // Why the hell do I need to know the column sizes at 
+  // compile time here?
+  Eigen::Matrix<Scalar, Eigen::Dynamic, 3> nullEV = 
+    Eigen::Matrix<Scalar, Eigen::Dynamic, 3>::Zero(1,3);
+  Eigen::Matrix<Index, Eigen::Dynamic, 2> nullIF =
+    Eigen::Matrix<Index, Eigen::Dynamic, 2>::Zero(1,2);
+  Eigen::Matrix<Index, Eigen::Dynamic, 2> nullEE =
+    Eigen::Matrix<Index, Eigen::Dynamic, 2>::Zero(1,2);
+  Eigen::Matrix<Index, Eigen::Dynamic, 1> nullEI =
+    Eigen::Matrix<Index, Eigen::Dynamic, 1>::Zero(1,1);
 
   // Some helper variables to calculate the energy
   Matrix map3D(numV, 3);
@@ -80,13 +88,13 @@ void MINGROCpp::LineSearchBacktracking<Scalar, Index>::LineSearch(
     x.noalias() = xp + step * drt;
 
     // Update the Beltrami coefficient
-    mingro.convertRealToComplex(x, mu);
+    mingroc.convertRealToComplex(x, mu);
 
     // Update the quasiconformal mapping
     w.noalias() = wp + step * dw;
 
     // Clip the boundary points of the updated mapping to the unit circle
-    MINGROCpp::clipToUnitCircle( mingro.m_bdyIDx, w );
+    MINGROCpp::clipToUnitCircle( mingroc.m_bdyIDx, w );
 
     // Pin fixed points, if necessary
     for(int i = 0; i < fixIDx.size(); i++)
@@ -104,7 +112,7 @@ void MINGROCpp::LineSearchBacktracking<Scalar, Index>::LineSearch(
       w3D << w.real(), w.imag(), Vector::Zero(numV);
 
       bool intersects = igl::fast_find_self_intersections(
-          w3D, m_F, true, true, nullIF, nullEV, nullEE, nullEI);
+          w3D, mingroc.m_F, true, true, nullIF, nullEV, nullEE, nullEI);
 
       validStep = validStep && (!intersects);
     }
@@ -136,7 +144,7 @@ void MINGROCpp::LineSearchBacktracking<Scalar, Index>::LineSearch(
     }
 
     // Evaluate the energy at the new location
-    fx = mingro.calculateEnergy(mu, w, map3D, gamma);
+    fx = mingroc.calculateEnergy(mu, w, NNI, map3D, gamma);
 
     // Evaluate line search termination conditions --------------------------------------
     

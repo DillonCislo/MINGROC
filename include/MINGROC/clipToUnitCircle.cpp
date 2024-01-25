@@ -23,8 +23,11 @@
 /// Clip a set of 2D points to all lie on the unit circle
 ///
 template <typename Scalar>
-MINGROC_INLINE void DSEMpp::clipToUnitCircle(
-    Eigen::Matrix<Scalar, Eigen::Dynamic, 2> &X ) {
+MINGROC_INLINE void MINGROCpp::clipToUnitCircle(
+    Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> &X ) {
+
+  if (X.cols() != 2)
+    std::invalid_argument("Can only clip 2D input");
 
   typedef std::complex<Scalar> CScalar;
 
@@ -44,7 +47,7 @@ MINGROC_INLINE void DSEMpp::clipToUnitCircle(
 /// Clip a set of complex numbers to all lie on the unit circle
 ///
 template <typename Scalar>
-MINGROC_INLINE void DSEMpp::clipToUnitCircle(
+MINGROC_INLINE void MINGROCpp::clipToUnitCircle(
     Eigen::Matrix<std::complex<Scalar>, Eigen::Dynamic, 1> &X ) {
 
   typedef std::complex<Scalar> CScalar;
@@ -61,9 +64,12 @@ MINGROC_INLINE void DSEMpp::clipToUnitCircle(
 /// Clip a subset of a set of 2D points to all lie on the unit circle
 ///
 template <typename Scalar, typename Index>
-MINGROC_INLINE void DSEMpp::clipToUnitCircle(
+MINGROC_INLINE void MINGROCpp::clipToUnitCircle(
     const Eigen::Matrix<Index, Eigen::Dynamic, 1> &vID,
-    Eigen::Matrix<Scalar, Eigen::Dynamic, 2> &X ) {
+    Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> &X ) {
+
+  if (X.cols() != 2)
+    std::invalid_argument("Can only clip 2D input");
 
   typedef std::complex<Scalar> CScalar;
 
@@ -83,7 +89,7 @@ MINGROC_INLINE void DSEMpp::clipToUnitCircle(
 /// Clip a subset of a set of complex numbers to all lie on the unit circle
 ///
 template <typename Scalar, typename Index>
-MINGROC_INLINE void DSEMpp::clipToUnitCircle(
+MINGROC_INLINE void MINGROCpp::clipToUnitCircle(
     const Eigen::Matrix<Index, Eigen::Dynamic, 1> &vID,
     Eigen::Matrix<std::complex<Scalar>, Eigen::Dynamic, 1> &X ) {
 

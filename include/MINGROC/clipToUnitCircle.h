@@ -43,7 +43,7 @@ namespace MINGROCpp {
   ///
   template <typename Scalar>
   MINGROC_INLINE void clipToUnitCircle(
-      Eigen::Matrix<Scalar, Eigen::Dynamic, 2> &X );
+      Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> &X );
 
   ///
   /// Clip a set of complex numbers to all lie on the unit circle
@@ -84,7 +84,7 @@ namespace MINGROCpp {
   template <typename Scalar, typename Index>
   MINGROC_INLINE void clipToUnitCircle(
       const Eigen::Matrix<Index, Eigen::Dynamic, 1> &vID,
-      Eigen::Matrix<Scalar, Eigen::Dynamic, 2> &X );
+      Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> &X );
 
   ///
   /// Clip a subset of a set of complex numbers to all lie on the unit circle

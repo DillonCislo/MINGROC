@@ -71,13 +71,13 @@ MINGROCpp::MINGROC<Scalar, Index>::MINGROC(
 /// for a given input mesh describing the initial condition.
 ///
 template <typename Scalar, typename Index>
-void MINGROCpp:MINGROC<Scalar, Index>::buildMINGROCFromMesh(
+void MINGROCpp::MINGROC<Scalar, Index>::buildMINGROCFromMesh(
     const Eigen::Matrix<Index, Eigen::Dynamic, Eigen::Dynamic> &F,
     const Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> &V,
     const Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> &x )
 {
 
-  m_F = f;
+  m_F = F;
   m_V = V;
   m_x = x;
 
@@ -172,10 +172,10 @@ void MINGROCpp:MINGROC<Scalar, Index>::buildMINGROCFromMesh(
   m_AV2D = Vector::Zero(m_V.rows(), 1);
   for( int i = 0; i < m_F.rows(); i++ )
   {
-    for( int j = 0; j < m_V.rows(); j++ )
+    for( int j = 0; j < 3; j++ )
     {
       m_AV3D0(m_F(i,j)) += m_AF3D0(i);
-      m_AF2D(m_F(i,j)) += m_AF2D(i);
+      m_AV2D(m_F(i,j)) += m_AF2D(i);
     }
   }
 
@@ -185,17 +185,6 @@ void MINGROCpp:MINGROC<Scalar, Index>::buildMINGROCFromMesh(
   // Construct the vertex area matrix
   RowVector VAT = m_AV2D.transpose();
   m_AV2DMat = VAT.replicate( m_x.rows(), 1);
-
-  // Construct the sparse identity matrix
-  typedef Eigen::Triplet<Scalar> T;
-  std::vector<T> tListI;
-  tListI.reserve( 2 * m_V.rows() );
-  for( int i = 0; i < (2 * m_V.rows()); i++ )
-    tListI.push_back( T(i, i, Scalar(1.0)) );
-
-  Eigen::SparseMatrix<Scalar> speye( 2 * m_V.rows(), 2 * m_V.rows() );
-  speye.setFromTriplets( tListI.begin(), tListI.end() );
-  m_speye = speye;
 
 };
 
@@ -367,7 +356,7 @@ void MINGROCpp::MINGROC<Scalar, Index>::constructAveragingOperators() {
 
   // Construct the face-to-vertex averaging operators
   std::vector<T> tListF2V;
-  std::vector<T> tlistF2VRaw;
+  std::vector<T> tListF2VRaw;
   tListF2V.reserve( 6 * numV ); // A rough estimate
   tListF2VRaw.reserve( 6 * numV );
 
@@ -390,6 +379,27 @@ void MINGROCpp::MINGROC<Scalar, Index>::constructAveragingOperators() {
 
 };
 
+/*
+///
+/// Set the final surface interpolant object
+///
+template <typename Scalar, typename Index>
+void MINGROCpp::MINGROC<Scalar, Index>::setFinalSurfaceInterpolant(
+    const Matrix &finMap3D )
+{
+  try {
+
+      m_NNI = NNIpp::NaturalNeighborInterpolant<Scalar>(
+          m_x.col(0), m_x.col(1), finMap3D, m_nniParam);
+
+  } catch (const std::runtime_error &ere) {
+      throw; // Rethrow the runtime_error
+  } catch (const std::logic_error &ele) {
+      throw; // Rethrow the logic_error
+  }
+};
+*/
+
 // ======================================================================================
 // MAPPING KERNEL FUNCTIONS
 // ======================================================================================
@@ -401,7 +411,8 @@ void MINGROCpp::MINGROC<Scalar, Index>::constructAveragingOperators() {
 ///
 template <typename Scalar, typename Index>
 MINGROC_INLINE void MINGROCpp::MINGROC<Scalar, Index>::calculateMappingKernel (
-    const CplxVector &w, Array &G1, Array &G2, Array &G3, Array &G4 ) const {
+    const CplxVector &w, Array &G1, Array &G2, Array &G3, Array &G4 ) const
+{
 
   // Number of vertices
   int numV = m_V.rows();
@@ -508,6 +519,7 @@ MINGROC_INLINE void MINGROCpp::MINGROC<Scalar, Index>::calculateMappingUpdate (
 template <typename Scalar, typename Index>
 Scalar MINGROCpp::MINGROC<Scalar, Index>::calculateEnergy (
     const CplxVector &mu, const CplxVector &w,
+    const NNIpp::NaturalNeighborInterpolant<Scalar> &NNI,
     Matrix &map3D, Vector &gamma ) const
 {
 
@@ -520,25 +532,25 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::calculateEnergy (
   
   // Calculate updated 3D vertex locations
   map3D = Matrix::Zero(numV, 3);
-  m_NNI( w.real(), w.imag(), map3D );
+  NNI( w.real(), w.imag(), map3D );
 
   // Face areas in the updated configuration
   Vector dblA_F(numV);
   igl::doublearea(map3D, m_F, dblA_F);
   
   // Calculate growth factor on vertices
-  gamma = m_F2V * ( dblA_F.array() / m_dblA0_F.array() );
-  // gamma = m_F2VRaw * ( dblA_F.array() / m_dblA0_F.array() );
+  gamma = m_F2V * ( dblA_F.array() / m_dblA0_F.array() ).matrix();
+  // gamma = m_F2VRaw * ( dblA_F.array() / m_dblA0_F.array() ).matrix();
   
   // The growth energy
-  Scalar E = (gamma.transpose() * m_L2D * gamma) / m_A2DTot;
-  // Scalar E = (gamma.transpose() * m_L3D0 * gamma) / m_A3DTot;
+  Scalar E = (gamma.transpose() * m_L2D * gamma).array().sum() / m_A2DTot;
+  // Scalar E = (gamma.transpose() * m_L3D0 * gamma).array().sum() / m_A3DTot;
   
   //-------------------------------------------------------------------------------------
   // Calculate Conformal Deviation Energy
   //-------------------------------------------------------------------------------------
   
-  if ( m_CC > Scalar(0.0) )
+  if ( m_param.CC > Scalar(0.0) )
   {
     ArrayVec absMu2 = (mu.array() * mu.array().conjugate()).real();
     Scalar ECC = (absMu2.array() * m_AV2D.array()).sum() / m_A2DTot;
@@ -551,16 +563,20 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::calculateEnergy (
   // Calculate Quasiconformal Smoothness Energy
   //-------------------------------------------------------------------------------------
   
-  if ( m_SC > Scalar(0.0) )
+  if ( m_param.SC > Scalar(0.0) )
   {
-    ArrayVec muR = mu.array().real();
-    ArrayVec muI = mu.array().imag();
+    Vector muR = mu.real();
+    Vector muI = mu.imag();
 
-    Scalar ESC = (muR.transpose() * m_L2D * muR) + (muI.transpose() * m_L2D * muI);
+    Scalar ESC = (muR.transpose() * m_L2D * muR).array().sum()
+      + (muI.transpose() * m_L2D * muI).array().sum();
     ESC = ESC / m_A2DTot;
 
-    // Scalar ESC = (muR.transpose() * m_L3D0 * muR) + (muI.transpose() * m_L3D0 * muI);
-    // ESC = ESC / m_A3D0Tot;
+    /*
+    Scalar ESC = (muR.transpose() * m_L3D0 * muR).array().sum()
+      + (muI.transpose() * m_L3D0 * muI).array().sum();
+    ESC = ESC / m_A3D0Tot;
+    */
 
     E += m_param.SC * ESC;
   }
@@ -569,7 +585,7 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::calculateEnergy (
   // Calculate Bound Constraint Energy on the Beltrami Coefficient
   //-------------------------------------------------------------------------------------
   
-  if ( m_DC > Scalar(0.0) )
+  if ( m_param.DC > Scalar(0.0) )
   {
     Scalar EDC = ( Scalar(1.0) - mu.array().abs() ).log().sum();
     E -= EDC / m_param.DC;
@@ -587,6 +603,7 @@ template <typename Scalar, typename Index>
 Scalar MINGROCpp::MINGROC<Scalar, Index>::calculateEnergyAndGrad (
     const CplxVector &mu, const CplxVector &w,
     const Array &G1, const Array &G2, const Array &G3, const Array &G4,
+    const NNIpp::NaturalNeighborInterpolant<Scalar> &NNI,
     CplxVector &gradMu, Matrix &map3D, Vector &gamma ) const
 {
 
@@ -606,7 +623,7 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::calculateEnergyAndGrad (
   map3D = Matrix::Zero(numV, 3);
   Matrix Dmap3DDu(numV, 3);
   Matrix Dmap3DDv(numV, 3);
-  m_NNI( w.real(), w.imag(), map3D, Dmap3DDu, Dmap3DDv );
+  NNI( w.real(), w.imag(), map3D, Dmap3DDu, Dmap3DDv );
 
   // Face-based edge vectors in the updated configuration
   Matrix ei(numF, 3);
@@ -636,9 +653,12 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::calculateEnergyAndGrad (
   // gamma = m_F2VRaw * gammaF;
   
   // The growth energy
-  Scalar E = (gamma.transpose() * m_L2D * gamma) / m_A2DTot;
-  // Scalar E = (gamma.transpose() * m_L3D0 * gamma) / m_A3DTot;
+  Scalar E = (gamma.transpose() * m_L2D * gamma).array().sum() / m_A2DTot;
+  // Scalar E = (gamma.transpose() * m_L3D0 * gamma).array().sum() / m_A3DTot;
   
+  if (m_param.iterDisp)
+    std::cout << "Growth Energy = " << E << std::endl;
+
   // ------------------------------------------------------------------------------------
   // Calculate Gradients With Respect to the Quasiconformal Parameterization
   // ------------------------------------------------------------------------------------
@@ -676,13 +696,13 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::calculateEnergyAndGrad (
   // entries. Each column represents the derivative of all face area ratios
   // with respect to a particular vertex. Only rows corresponding to faces
   // attached to that particular vertex will have nonzero entries
-  std::vector<T> tListDgFDu; tlistDgFDu.reserve(3 * numF);
-  std::vector<T> tListDgFDv; tlistDgFDv.reserve(3 * numF);
+  std::vector<T> tListDgFDu; tListDgFDu.reserve(3 * numF);
+  std::vector<T> tListDgFDv; tListDgFDv.reserve(3 * numF);
   for(int i = 0; i < numF; i++ )
   {
     for(int j = 0; j < 3; j++ )
     {
-      tListDgFDu.push_back( T(i, m_F(i,j), DgammaFDv(i,j)) );
+      tListDgFDu.push_back( T(i, m_F(i,j), DgammaFDu(i,j)) );
       tListDgFDv.push_back( T(i, m_F(i,j), DgammaFDv(i,j)) );
     }
   }
@@ -743,7 +763,7 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::calculateEnergyAndGrad (
   // Calculate Conformal Deviation Energy
   //-------------------------------------------------------------------------------------
   
-  if ( m_CC > Scalar(0.0) )
+  if ( m_param.CC > Scalar(0.0) )
   {
     ArrayVec absMu2 = (mu.array() * mu.array().conjugate()).real();
 
@@ -757,38 +777,48 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::calculateEnergyAndGrad (
 
     E += m_param.CC * ECC;
     gradMu = (gradMu.array() + m_param.CC * gradMuCC).matrix();
+
+    if (m_param.iterDisp)
+      std::cout << "Conformal Energy = " << m_param.CC * ECC << std::endl;
   }
 
   //-------------------------------------------------------------------------------------
   // Calculate Quasiconformal Smoothness Energy
   //-------------------------------------------------------------------------------------
   
-  if ( m_SC > Scalar(0.0) )
+  if ( m_param.SC > Scalar(0.0) )
   {
-    ArrayVec muR = mu.array().real();
-    ArrayVec muI = mu.array().imag();
+    Vector muR = mu.real();
+    Vector muI = mu.imag();
 
-    ArrayVec LmuR = (m_L2D * muR).array();
-    ArrayVec LmuI = (m_L2D * muI).array();
-    Scalar ESC = ((muR.transpose() * LmuR) + (muI.transpose() * LmuI)) / m_A2DTot;
-    CplxArrayVec gradMuSC = Scalar(2.0) * (LmuR + CScalar(0.0, 1.0) * LmuI) / m_A2DTot;
+    Vector LmuR = m_L2D * muR;
+    Vector LmuI = m_L2D * muI;
+    Scalar ESC = ((muR.transpose() * LmuR).array().sum()
+        + (muI.transpose() * LmuI).array().sum()) / m_A2DTot;
+    CplxArrayVec gradMuSC = Scalar(2.0) * (LmuR.array() +
+       CScalar(0.0, 1.0) * LmuI.array()).matrix() / m_A2DTot;
 
     /*
-    ArrayVec LmuR = (m_L3D0 * muR).array();
-    ArrayVec LmuI = (m_L3D0 * muI).array();
-    Scalar ESC = ((muR.transpose() * LmuR) + (muI.transpose() * LmuI)) / m_A3D0Tot;
-    CplxArrayVec gradMuSC = Scalar(2.0) * (LmuR + CScalar(0.0, 1.0) * LmuI) / m_A3D0Tot;
+    Vector LmuR = m_L3D0 * muR;
+    Vector LmuI = m_L3D0 * muI;
+    Scalar ESC = ((muR.transpose() * LmuR).array().sum()
+        + (muI.transpose() * LmuI).array().sum()) / m_A3D0Tot;
+    CplxArrayVec gradMuSC = Scalar(2.0) * (LmuR.array() +
+        CScalar(0.0, 1.0) * LmuI.array()).matrix() / m_A3D0Tot;
     */
     
     E += m_param.SC * ESC;
     gradMu = (gradMu.array() + m_param.SC * gradMuSC).matrix();
+
+    if (m_param.iterDisp)
+      std::cout << "Smoothness Energy = " << m_param.SC * ESC << std::endl;
   }
 
   //-------------------------------------------------------------------------------------
   // Calculate Bound Constraint Energy on the Beltrami Coefficient
   //-------------------------------------------------------------------------------------
   
-  if ( m_DC > Scalar(0.0) )
+  if ( m_param.DC > Scalar(0.0) )
   {
     Scalar EDC = ( Scalar(1.0) - mu.array().abs() ).log().sum();
     E -= EDC / m_param.DC;
@@ -796,6 +826,9 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::calculateEnergyAndGrad (
     ArrayVec absMu = mu.array().abs();
     gradMu = ( gradMu.array() +
         mu.array() / ( absMu * (Scalar(1.0) - absMu) ) / m_param.DC ).matrix();
+
+    if (m_param.iterDisp)
+      std::cout << "Diffeomorphic Energy = " << -EDC / m_param.DC << std::endl;
   }
 
   return E;
@@ -811,7 +844,7 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::calculateEnergyAndGrad (
 ///
 template <typename Scalar, typename Index>
 MINGROC_INLINE void MINGROCpp::MINGROC<Scalar, Index>::convertRealToComplex(
-    const Vector &x, CplxVector &z )
+    const Vector &x, CplxVector &z ) const
 {
 
   z.resize(x.size());
@@ -887,20 +920,12 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::operator() (
   }
 
   // Generate the final surface interpolant
-  try
-  {
-
-    m_NNI = NNIpp::NaturalNeighborInterpolant<Scalar>(
-        w.real(), w.imag(), finMap3D, nniParam);
-
-  } catch ( const std::runtime_error &ere ) { throw; }
-  } catch ( const std::logic_error &ele ) { throw; }
-  } catch ( const std::invalid_argument &eie ) { throw; }
+  NNIpp::NaturalNeighborInterpolant<Scalar> NNI(w.real(), w.imag(), finMap3D, m_nniParam);
 
   // Fixed point processing -------------------------------------------------------------
   
-  if ( fixedIDx.size() > 0 )
-    if ( !((fixedIDx.array() >= Index(0)).all() && (fixedIDx.array() < numV).all()) )
+  if ( fixIDx.size() > 0 )
+    if ( !((fixIDx.array() >= Index(0)).all() && (fixIDx.array() < numV).all()) )
       throw std::runtime_error("User supplied fixed point is out of bounds");
 
   // ------------------------------------------------------------------------------------
@@ -963,12 +988,12 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::operator() (
   Array G2( numV, numV );
   Array G3( numV, numV );
   Array G4( numV, numV );
-  calculateMappingKernel( w, G1, G2, G3, G4 );
+  this->calculateMappingKernel( w, G1, G2, G3, G4 );
 
   // Evaluate the function and gradient for initial configuration
   CplxVector gradMu(numV, 1);
   Vector gamma(numV, 1);
-  fx = calculateEnergyAndGrad(mu, w, G1, G2, G3, G4, gradMu, map3D, gamma);
+  fx = this->calculateEnergyAndGrad(mu, w, G1, G2, G3, G4, NNI, gradMu, map3D, gamma);
   
   // Convert complex state format -> real state format
   x << mu.real(), mu.imag();
@@ -1008,10 +1033,10 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::operator() (
   drt.noalias() = -grad;
 
   // Convert real state format -> complex state format
-  convertRealToComplex(drt, dmu)
+  this->convertRealToComplex(drt, dmu);
 
   // Calculate the inital update direction for the quasiconformal mapping
-  calculateMappingUpdate(dmu, G1, G2, G3, G4, dw);
+  this->calculateMappingUpdate(dmu, G1, G2, G3, G4, dw);
 
   // Initial step size
   Scalar step = Scalar(1.0) / drt.norm();
@@ -1029,7 +1054,7 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::operator() (
     {
       if (m_param.iterDisp) {
         std::cout << "CONVERGENCE CRITERION: Maximum "
-          << "iteration number exceeded" << std::end;
+          << "iteration number exceeded" << std::endl;
       }
 
       return fx;
@@ -1049,7 +1074,7 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::operator() (
       // Once this procedure is finished, (fx, x, w, step) will be
       // updated, but grad will not
       MINGROCpp::LineSearchBacktracking<Scalar, Index>::LineSearch(
-          *this, m_param, fixIDx, drt, dw, grad, fx, x, w, step);
+          *this, m_param, NNI, fixIDx, drt, dw, grad, fx, x, w, step);
 
     } catch ( const std::runtime_error &ere ) {
 
@@ -1074,7 +1099,7 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::operator() (
     }
 
     // Calculate the mapping kernel
-    calculateMappingKernel( w, G1, G2, G3, G4 );
+    this->calculateMappingKernel( w, G1, G2, G3, G4 );
 
     // Update the Beltrami coefficient
     if (m_param.recomputeMu)
@@ -1085,12 +1110,12 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::operator() (
       
     } else {
 
-      convertRealToComplex(x, mu);
+      this->convertRealToComplex(x, mu);
 
     }
 
     // Evaluate the function and gradient for initial configuration
-    fx = calculateEnergyAndGrad(mu, w, G1, G2, G3, G4, gradMu, map3D, gamma);
+    fx = this->calculateEnergyAndGrad(mu, w, G1, G2, G3, G4, NNI, gradMu, map3D, gamma);
     grad << gradMu.real(), gradMu.imag();
       
     // New vector norms
@@ -1127,7 +1152,7 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::operator() (
       if( longEnough && slowChange )
       {
         if ( m_param.iterDisp )
-          std::cout << "CONVERGENCE CRITERION: Insufficient change" << std::endl
+          std::cout << "CONVERGENCE CRITERION: Insufficient change" << std::endl;
 
         return fx;
       }
@@ -1144,10 +1169,10 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::operator() (
     bfgs.applyHv( grad, -Scalar(1.0), drt );
 
     // Convert real state format -> complex state format
-    convertRealToComplex(drt, dmu);
+    this->convertRealToComplex(drt, dmu);
 
     // Calculate the inital update direction for the quasiconformal mapping
-    calculateMappingUpdate(dmu, G1, G2, G3, G4, dw);
+    this->calculateMappingUpdate(dmu, G1, G2, G3, G4, dw);
 
     // Reset step = 1.0 as initial guess for the next line search
     step = Scalar(1.0);

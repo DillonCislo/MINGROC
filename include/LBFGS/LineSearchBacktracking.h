@@ -19,7 +19,10 @@
 #ifndef _LINE_SEARCH_BACKTRACKING_H_
 #define _LINE_SEARCH_BACKTRACKING_H_
 
-#include "../MINGROCpp/mingroInline.h"
+#include "../MINGROC/mingrocInline.h"
+#include "../external/NNIpp/include/NaturalNeighborInterpolant/NNIParam.h"
+#include "../external/NNIpp/include/NaturalNeighborInterpolant/NaturalNeighborInterpolant.h"
+
 #include <complex>
 #include <Eigen/Core>
 
@@ -42,8 +45,20 @@ namespace MINGROCpp {
 
       typedef std::complex<Scalar> CScalar;
       typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
+      typedef Eigen::Matrix<Scalar, 1, Eigen::Dynamic> RowVector;
+      typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
+      typedef Eigen::Array<Scalar, Eigen::Dynamic, 1> ArrayVec;
+      typedef Eigen::Array<Scalar, 1, Eigen::Dynamic> ArrayRowVec;
       typedef Eigen::Array<Scalar, Eigen::Dynamic, Eigen::Dynamic> Array;
       typedef Eigen::Matrix<CScalar, Eigen::Dynamic, 1> CplxVector;
+      typedef Eigen::Matrix<CScalar, 1, Eigen::Dynamic> CplxRowVector;
+      typedef Eigen::Matrix<CScalar, Eigen::Dynamic, Eigen::Dynamic> CplxMatrix;
+      typedef Eigen::Array<CScalar, Eigen::Dynamic, 1> CplxArrayVec;
+      typedef Eigen::Array<CScalar, Eigen::Dynamic, Eigen::Dynamic> CplxArray;
+      typedef Eigen::Matrix<Index, Eigen::Dynamic, 1> IndexVector;
+      typedef Eigen::Matrix<Index, Eigen::Dynamic, Eigen::Dynamic> IndexMatrix;
+      typedef Eigen::Array<Index, Eigen::Dynamic, 1> IndexArrayVec;
+      typedef Eigen::Array<Index, Eigen::Dynamic, Eigen::Dynamic> IndexArray;
 
     public:
 
@@ -55,27 +70,25 @@ namespace MINGROCpp {
       ///   mingro  An instance of the 'MINGROC' class. Used to evaluate the energy
       ///           and energy gradients
       ///
-      ///   param   The parameters for the 'DSEM' class
+      ///   param   The parameters for the 'MINGROC' class
       ///
-      ///   L       #E by 1 list of target edge lengths
+      ///   NNI     A natural neighbor interpolant for the final 3D surface
       ///
-      ///   tarA_E  #E by 1 list of target areas associated to edges
-      ///
-      ///   tarA_V  #V by 1 list of target areas associated to vertices
-      ///
-      ///   fx      The objective function value at the current point
-      ///
-      ///   grad    The current global gradient vector
-      ///
-      ///   step    The initial step length
-      ///
-      ///   xp      The current global unknown vector
-      ///
-      ///   wp      The current quasiconformal mapping
+      ///   fixIDx  #FP by 1 list of fixed vertex IDs
       ///
       ///   drt     The current update direction
       ///
       ///   dw      The current update direction for the quasiconformal mapping
+      ///
+      ///   grad    The current global gradient vector
+      ///
+      ///   fx      The objective function value at the current point
+      ///
+      ///   x       The current global unknown vector
+      ///
+      ///   w       The current quasiconformal mapping
+      ///
+      ///   step    The initial step length
       ///
       /// Outputs:
       ///
@@ -85,22 +98,15 @@ namespace MINGROCpp {
       ///
       ///   w           The updated quasiconformal mapping
       ///
-      ///   grad        The updated global gradient vector
-      ///
-      ///   gradUNorm   The norm of the gradient with respect to the fully
-      ///               composed parameterization
-      ///
       ///   step        The calculated step length
       ///
-      ///   l           The updated metric associated with the minimum distance SEM
-      ///
       static void LineSearch(
-          const MINGROC<Scalar, Index> &mingro, const MINGROCParam<Scalar> &param,
-          const Vector &L, const Vector &tarA_E, const Vector &tarA_V,
-          const Vector &xp, const CplxVector &wp,
-          const Vector &drt, const CplxVector &dw,
-          Scalar &fx, Vector &x, CplxVector &w,
-          Vector &grad, Scalar &gradUNorm, Scalar &step, Vector &l );
+          const MINGROC<Scalar, Index> &mingroc,
+          const MINGROCParam<Scalar> &param,
+          const NNIpp::NaturalNeighborInterpolant<Scalar> &NNI,
+          const Eigen::Matrix<Index, Eigen::Dynamic, 1> &fixIDx,
+          const Vector &drt, const CplxVector &dw, const Vector &grad,
+          Scalar &fx, Vector &x, CplxVector &w, Scalar &step );
 
   };
 
