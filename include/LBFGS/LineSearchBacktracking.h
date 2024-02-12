@@ -90,6 +90,14 @@ namespace MINGROCpp {
       ///
       ///   step    The initial step length
       ///
+      ///   calcGrowthEnergy    Whether or not to calculate the areal growth energy.
+      ///                       This is the only term in the energy that depends on
+      ///                       the BHF
+      ///
+      ///   calcMuEnergy        Whether or not to calculate the terms in the energy
+      ///                       that depend on the Beltrami coefficient directly,
+      ///                       i.e. not through the mapping w
+      ///
       /// Outputs:
       ///
       ///   fx          The objective function value at the updated point
@@ -106,6 +114,7 @@ namespace MINGROCpp {
           const NNIpp::NaturalNeighborInterpolant<Scalar> &NNI,
           const Eigen::Matrix<Index, Eigen::Dynamic, 1> &fixIDx,
           const Vector &drt, const CplxVector &dw, const Vector &grad,
+          bool calcGrowthEnergy, bool calcMuEnergy,
           Scalar &fx, Vector &x, CplxVector &w, Scalar &step );
 
   };

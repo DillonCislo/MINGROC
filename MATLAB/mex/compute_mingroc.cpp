@@ -133,6 +133,26 @@ void mexFunction( int nlhs, mxArray *plhs[],
   if ( (idx = mxGetFieldNumber( prhs[3], "maxIterations" )) != -1 ) {
     mingrocParam.maxIterations = (int) *mxGetPr(mxGetFieldByNumber( prhs[3], 0, idx ));
   }
+  
+  // The minimization method
+  if ( (idx = mxGetFieldNumber( prhs[3], "minimizationMethod" )) != -1 ) {
+    mingrocParam.minimizationMethod = (int) *mxGetPr(mxGetFieldByNumber( prhs[3], 0, idx ));
+  }
+
+  // The number of growth iterations for the alternating minimization method
+  if ( (idx = mxGetFieldNumber( prhs[3], "numGrowthIterations" )) != -1 ) {
+    mingrocParam.numGrowthIterations = (int) *mxGetPr(mxGetFieldByNumber( prhs[3], 0, idx ));
+  }
+
+  // The number of Beltrami iterations for the alternating minimization method
+  if ( (idx = mxGetFieldNumber( prhs[3], "numMuIterations" )) != -1 ) {
+    mingrocParam.numMuIterations = (int) *mxGetPr(mxGetFieldByNumber( prhs[3], 0, idx ));
+  }
+
+  // The smoothing time coefficient
+  if ( (idx = mxGetFieldNumber( prhs[3], "tCoef" )) != -1 ) {
+    mingrocParam.tCoef = *mxGetPr(mxGetFieldByNumber( prhs[3], 0, idx ));
+  }
 
   // The line search termination condition
   if ( (idx = mxGetFieldNumber( prhs[3], "lineSearchTermination" )) != -1 ) {
@@ -189,6 +209,11 @@ void mexFunction( int nlhs, mxArray *plhs[],
     mingrocParam.iterDisp = *mxGetLogicals(mxGetFieldByNumber( prhs[3], 0, idx));
   }
 
+  // Display option for detailed text output
+  if ( (idx = mxGetFieldNumber( prhs[3], "iterDispDetailed" )) != -1 ) {
+    mingrocParam.iterDispDetailed = *mxGetLogicals(mxGetFieldByNumber( prhs[3], 0, idx));
+  }
+
   // Display option for visual output
   if ( (idx = mxGetFieldNumber( prhs[3], "iterVisDisp" )) != -1 ) {
     mingrocParam.iterVisDisp = *mxGetLogicals(mxGetFieldByNumber( prhs[3], 0, idx));
@@ -205,6 +230,32 @@ void mexFunction( int nlhs, mxArray *plhs[],
   if ( (idx = mxGetFieldNumber( prhs[3], "recomputeMu" )) != -1 ) {
     mingrocParam.recomputeMu = *mxGetLogicals(mxGetFieldByNumber( prhs[3], 0, idx));
   }
+
+  // Option to smooth Beltrami coefficient on final surface in alternating scheme
+  if ( (idx = mxGetFieldNumber( prhs[3], "smoothMuOnFinalSurface" )) != -1 ) {
+    mingrocParam.smoothMuOnFinalSurface =
+      *mxGetLogicals(mxGetFieldByNumber( prhs[3], 0, idx));
+  }
+
+  // Option to calculate 2D or 3D areas/derivatives in the energy
+  if ( (idx = mxGetFieldNumber( prhs[3], "use3DEnergy" )) != -1 ) {
+    mingrocParam.use3DEnergy = *mxGetLogicals(mxGetFieldByNumber( prhs[3], 0, idx));
+  }
+
+  // Option to treat the Beltrami coefficient as a vector during smoothing
+  if ( (idx = mxGetFieldNumber( prhs[3], "useVectorSmoothing" )) != -1 ) {
+    mingrocParam.useVectorSmoothing =
+      *mxGetLogicals(mxGetFieldByNumber( prhs[3], 0, idx));
+  }
+
+  // Option to treat the Beltrami coefficient as a vector during energy/
+  // energy gradient computations
+  if ( (idx = mxGetFieldNumber( prhs[3], "useVectorEnergy" )) != -1 ) {
+    mingrocParam.useVectorEnergy =
+      *mxGetLogicals(mxGetFieldByNumber( prhs[3], 0, idx));
+  }
+
+  
 
   // Process NNI Input Options ----------------------------------------------------------
   
@@ -317,13 +368,29 @@ void mexFunction( int nlhs, mxArray *plhs[],
   // RUN OPTIMIZATION
   //-------------------------------------------------------------------------------------
 
+  if ( mingrocParam.useVectorEnergy )
+    mexErrMsgTxt("Vector energy is not yet implemented!");
+
+  if ( mingrocParam.useVectorSmoothing )
+    mexErrMsgTxt("Vector smoothing is not yet implemented!");
+
   // Generate a MINGROC object
   MINGROCpp::MINGROC<double, int> mingroc(F, V, x, mingrocParam, nniParam);
 
+  double E = 0.0;
   CmplxVector mu = initMu;
   CmplxVector w = initW;
   MatrixXd map3D = finMap3D;
-  double E = mingroc( finMap3D, initMu, initW, fixIDx, mu, w, map3D );
+
+  try {
+
+    mingroc( finMap3D, initMu, initW, fixIDx, E, mu, w, map3D );
+
+  } catch (const std::exception &e) {
+
+    mexWarnMsgTxt(e.what());
+
+  }
 
   //-------------------------------------------------------------------------------------
   // OUTPUT PROCESSING

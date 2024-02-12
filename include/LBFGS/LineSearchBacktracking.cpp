@@ -33,7 +33,9 @@ void MINGROCpp::LineSearchBacktracking<Scalar, Index>::LineSearch(
     const NNIpp::NaturalNeighborInterpolant<Scalar> &NNI,
     const Eigen::Matrix<Index, Eigen::Dynamic, 1> &fixIDx,
     const Vector &drt, const CplxVector &dw, const Vector &grad,
+    bool calcGrowthEnergy, bool calcMuEnergy,
     Scalar &fx, Vector &x, CplxVector &w, Scalar &step ) {
+
 
   int numF = mingroc.m_F.rows(); // The number of faces
   int numV = mingroc.m_V.rows(); // The number of vertices
@@ -144,7 +146,8 @@ void MINGROCpp::LineSearchBacktracking<Scalar, Index>::LineSearch(
     }
 
     // Evaluate the energy at the new location
-    fx = mingroc.calculateEnergy(mu, w, NNI, map3D, gamma);
+    fx = mingroc.calculateEnergy(mu, w, NNI, calcGrowthEnergy, calcMuEnergy,
+        map3D, gamma);
 
     // Evaluate line search termination conditions --------------------------------------
     
@@ -153,8 +156,17 @@ void MINGROCpp::LineSearchBacktracking<Scalar, Index>::LineSearch(
 
       width = dec;
 
-    // Accept any valid positive step
+    // Accept any valid step, even if it increases the energy
     } else if ( param.lineSearchTermination == LINE_SEARCH_TERMINATION_NONE ) {
+
+      break;
+
+    } else if ( fx > fx_init ) {
+
+      width = dec;
+
+    // Accept any step that at least decreases the energy
+    } else if ( param.lineSearchTermination == LINE_SEARCH_TERMINATION_DECREASE ) {
 
       break;
     

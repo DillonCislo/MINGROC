@@ -26,6 +26,8 @@
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
 
+#include "igl/min_quad_with_fixed.h"
+
 #include "MINGROCParam.h"
 #include "../external/NNIpp/include/NaturalNeighborInterpolant/NaturalNeighborInterpolant.h"
 #include "../external/NNIpp/include/NaturalNeighborInterpolant/NNIParam.h"
@@ -99,11 +101,20 @@ namespace MINGROCpp {
       // onto faces
       Eigen::SparseMatrix<Scalar> m_V2F;
 
+      // #F by 3 list of squared edge lengths in the 2D pullback mesh.
+      // m_L2F2D(f,i) is the squared length of the edge opposite the
+      // ith vertex in face f
+      Matrix m_L2F2D;
+
       // #F by 1 list of face areas in the 2D pullback mesh
       Vector m_AF2D;
 
       // #V by 1 list of barycentric vertex areas in the 2D pullback mesh
       Vector m_AV2D;
+
+      // #V by #V sparse matrix operator. Diagonal matrix holding the
+      // barycentric vertex areas in the 2D pullback mesh
+      Eigen::SparseMatrix<Scalar> m_massMat2D;
 
       // The total area of the 2D pullback mesh (should be ~pi)
       Scalar m_A2DTot;
@@ -113,6 +124,11 @@ namespace MINGROCpp {
       // Equal to m_AV2D.transpose().replicate(#V, 1)
       Array m_AV2DMat;
 
+      // #F by 3 list of squared edge lengths in the initial 3D surface.
+      // m_L2F3D0(f,i) is the squared length of the edge opposite the
+      // ith vertex in face f
+      Matrix m_L2F3D0;
+
       // #F by 1 list of face areas in the initial 3D surface
       Vector m_AF3D0;
 
@@ -121,6 +137,10 @@ namespace MINGROCpp {
 
       // #V by 1 list of barycentric vertex areas in the initial 3D surface
       Vector m_AV3D0;
+
+      // #V by #V sparse matrix operator. Diagonal matrix holding the
+      // barycentric vertex areas in the initial 3D surface
+      Eigen::SparseMatrix<Scalar> m_massMat3D0;
 
       // The total area of the intial 3D surface
       Scalar m_A3D0Tot;
@@ -154,6 +174,15 @@ namespace MINGROCpp {
       // NOTE: This matrix is just equal to (m_F2V.transpose * m_L2D * mF2V)
       Eigen::SparseMatrix<Scalar> m_LF2D;
 
+      // #V by #V sparse matrix operator. Used to implement the updates to
+      // the Beltrami coefficient in the alternating scheme
+      Eigen::SparseMatrix<Scalar> m_smoothOp2D;
+
+      // A class containing the precomputed data based on the 2D pullback
+      // mesh used to solve for updates to the Beltrami coefficient in
+      // the 'alternating' minimization scheme
+      igl::min_quad_with_fixed_data<Scalar> m_mqwf2D;
+
       // #V by #V Laplace-Beltrami operator in the initial 3D surface
       // NOTE: This matrix uses the convention that L3D is **positive**
       // semi-definite (minus the usual 'libigl' convention)
@@ -162,6 +191,18 @@ namespace MINGROCpp {
       // #F by #F Laplace-Beltrami operator in the initial 3D surface
       // NOTE: This matrix is just equal to (m_F2V.transpose * m_L3D0 * mF2V)
       Eigen::SparseMatrix<Scalar> m_LF3D0;
+
+      // #V by #V sparse matrix operator. Used to implement the updates to
+      // the Beltrami coefficient in the alternating scheme
+      Eigen::SparseMatrix<Scalar> m_smoothOp3D;
+
+      // A class containing the precomputed data based on the initial 3D
+      // surface used to solve for updates to the Beltrami coefficient in
+      // the 'alternating' minimization scheme
+      igl::min_quad_with_fixed_data<Scalar> m_mqwf3D;
+
+      // #F by #V 3D finite element gradient operator on initial 3D surface
+      Eigen::SparseMatrix<Scalar> m_G3D0;
 
       // Surface Interpolant Properties -------------------------------------------------
 
@@ -197,7 +238,8 @@ namespace MINGROCpp {
 
       ///
       /// Calculate the minimum information constant growth pattern for a
-      /// given target surface
+      /// given target surface. This is really just a wrapper for
+      /// 'mingrocSimultaneous' and 'mingrocAlternating'
       ///
       /// Inputs:
       ///
@@ -229,9 +271,89 @@ namespace MINGROCpp {
       ///   map3D #V by 3 list of vertex coordinates in the 3D parameterization
       ///         corresponding to the minimum information constant growth pattern
       ///
-      Scalar operator() ( const Matrix &finMap3D, const CplxVector &initMu,
+      void operator() ( const Matrix &finMap3D, const CplxVector &initMu,
           const CplxVector &initMap, const IndexVector &fixIDx,
-          CplxVector &mu, CplxVector &w, Matrix &map3D ) const;
+          Scalar &EG, CplxVector &mu, CplxVector &w, Matrix &map3D ) const;
+
+      ///
+      /// Calculate the minimum information constant growth pattern for a
+      /// given target surface by simultaneously optimizing all terms in the
+      /// energy
+      ///
+      /// Inputs:
+      ///
+      ///   finMap3D  #V by 3 list of 3D vertex coordinates in the final target
+      ///             configuration
+      ///
+      ///   initMu    #V by 1 initial guess for the Beltrami coefficient
+      ///             that specifies the mapping corresponding to the minimum
+      ///             distance SEM
+      ///
+      ///   initMap   #V by 1 complex representation of the quasiconformal
+      ///             mapping specified by 'initMu'
+      ///
+      ///   fixIDx    #P by 1 list of vertex IDs that are to be fixed under the
+      ///             quasiconformal mapping
+      ///
+      ///
+      /// Outputs:
+      ///
+      ///   EG    The minimum information constant growth energy
+      ///
+      ///   mu    #V by 1 complex representation of the Beltrami coefficient
+      ///         that specifies the mapping corresponding to the minimum
+      ///         information constant growth pattern
+      ///
+      ///   w     #V by 1 complex representation of the quasiconformal mapping
+      ///         corresponding to the minimum information constant growth pattern
+      ///
+      ///   map3D #V by 3 list of vertex coordinates in the 3D parameterization
+      ///         corresponding to the minimum information constant growth pattern
+      ///
+      void mingrocSimultaneous( const Matrix &finMap3D, const CplxVector &initMu,
+          const CplxVector &initMap, const IndexVector &fixIDx,
+          Scalar &EG, CplxVector &mu, CplxVector &w, Matrix &map3D ) const;
+
+      ///
+      /// Calculate the minimum information constant growth pattern for a
+      /// given target surface using an alternating method that separately
+      /// optimizes the terms in the energy that depend directly on the
+      /// Beltrami coefficient and the terms that depend only on the
+      /// Beltrami coefficient through the quasiconformal mapping
+      ///
+      /// Inputs:
+      ///
+      ///   finMap3D  #V by 3 list of 3D vertex coordinates in the final target
+      ///             configuration
+      ///
+      ///   initMu    #V by 1 initial guess for the Beltrami coefficient
+      ///             that specifies the mapping corresponding to the minimum
+      ///             distance SEM
+      ///
+      ///   initMap   #V by 1 complex representation of the quasiconformal
+      ///             mapping specified by 'initMu'
+      ///
+      ///   fixIDx    #P by 1 list of vertex IDs that are to be fixed under the
+      ///             quasiconformal mapping
+      ///
+      ///
+      /// Outputs:
+      ///
+      ///   EG    The minimum information constant growth energy
+      ///
+      ///   mu    #V by 1 complex representation of the Beltrami coefficient
+      ///         that specifies the mapping corresponding to the minimum
+      ///         information constant growth pattern
+      ///
+      ///   w     #V by 1 complex representation of the quasiconformal mapping
+      ///         corresponding to the minimum information constant growth pattern
+      ///
+      ///   map3D #V by 3 list of vertex coordinates in the 3D parameterization
+      ///         corresponding to the minimum information constant growth pattern
+      ///
+      void mingrocAlternating( const Matrix &finMap3D, const CplxVector &initMu,
+          const CplxVector &initMap, const IndexVector &fixIDx,
+          Scalar &EG, CplxVector &mu, CplxVector &w, Matrix &map3D ) const;
 
       ///
       /// Calculate the MINGROC energy functional for a given configuration
@@ -248,6 +370,14 @@ namespace MINGROCpp {
       ///
       ///   NNI     A natural neighbor interpolant class for the final 3D surface
       ///
+      ///   calcGrowthEnergy    Whether or not to calculate the areal growth energy.
+      ///                       This is the only term in the energy that depends on
+      ///                       the BHF
+      ///
+      ///   calcMuEnergy        Whether or not to calculate the terms in the energy
+      ///                       that depend on the Beltrami coefficient directly,
+      ///                       i.e. not through the mapping w
+      ///
       /// Outputs:
       ///
       ///   E       The total energy for the input configuration
@@ -259,6 +389,7 @@ namespace MINGROCpp {
       Scalar calculateEnergy (
           const CplxVector &mu, const CplxVector &w,
           const NNIpp::NaturalNeighborInterpolant<Scalar> &NNI,
+          bool calcGrowthEnergy, bool calcMuEnergy,
           Matrix &map3D, Vector &gamma ) const;
 
       ///
@@ -284,6 +415,18 @@ namespace MINGROCpp {
       ///
       ///   NNI     A natural neighbor interpolant class for the final 3D surface
       ///
+      ///   calcGrowthEnergy    Whether or not to calculate the areal growth energy
+      ///                       and gradients. This is the only term in the energy
+      ///                       that depends on the BHF
+      ///
+      ///   calcMuEnergy        Whether or not to calculate energy terms that
+      ///                       depend on the Beltrami coefficient directly,
+      ///                       i.e. not through the mapping w
+      ///
+      ///   calcMuGradients     Whether or not to calculate energy gradients that
+      ///                       depend on the Beltrami coefficient directly,
+      ///                       i.e. not through the mapping w
+      ///
       ///
       /// Outputs:
       ///
@@ -299,6 +442,7 @@ namespace MINGROCpp {
           const CplxVector &mu, const CplxVector &w,
           const Array &G1, const Array &G2, const Array &G3, const Array &G4,
           const NNIpp::NaturalNeighborInterpolant<Scalar> &NNI,
+          bool calcGrowthEnergy, bool calcMuEnergy, bool calcMuGradients,
           CplxVector &gradMu, Matrix &map3D, Vector &gamma ) const;
 
       ///
@@ -387,17 +531,6 @@ namespace MINGROCpp {
       ///
       MINGROC_INLINE void convertRealToComplex(
           const Vector &x, CplxVector &z ) const;
-
-      /*
-      ///
-      /// Set the final surface interpolant object
-      ///
-      /// Inputs:
-      ///
-      ///   finMap3D  #Vx3 final surface coordinates
-      ///
-      void setFinalSurfaceInterpolant( const Matrix &finMap3D );
-      */
 
   };
 
