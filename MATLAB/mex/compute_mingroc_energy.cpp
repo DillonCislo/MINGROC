@@ -1,13 +1,11 @@
 /* =============================================================================================
  *
- *  compute_mingroc.cpp
+ *  mingroc_test_energy.cpp
  *  
- *  An optimization procedure to calculate the minimum information
- *  constant growth pattern connecting an initial 3D configuration
- *  with a final 3D configuration
+ *
  *
  *  by Dillon Cislo
- *  01/24/2024
+ *  01/23/2024
  *
  *  This is a MEX-file for MATLAB
  *  
@@ -43,12 +41,12 @@ void mexFunction( int nlhs, mxArray *plhs[],
   //-------------------------------------------------------------------------------------
 
   // Check for proper number of arguments
-  if ( nrhs != 9 ) {
-    mexErrMsgIdAndTxt( "MATLAB:compute_mingroc:nargin",
-        "COMPUTE_MINGROC requires 9 input arguments" );
-  } else if ( nlhs != 4 ) {
-    mexErrMsgIdAndTxt("MATLAB:compute_mingroc:nargout",
-        "COMPUTE_MINGROC requries 4 output arguments" );
+  if ( nrhs != 8 ) {
+    mexErrMsgIdAndTxt( "MATLAB:compute_mingroc_energy:nargin",
+        "COMPUTE_MINGROC_ENERGY requires 8 input arguments" );
+  } else if ( nlhs != 3 ) {
+    mexErrMsgIdAndTxt("MATLAB:compute_mingroc_energy:nargout",
+        "COMPUTE_MINGROC_ENERGY requries 3 output arguments" );
   }
 
   // Face connectivity list
@@ -71,10 +69,6 @@ void mexFunction( int nlhs, mxArray *plhs[],
   // The final 3D surface coordinates
   double *fMapIn = mxGetPr( prhs[7] );
 
-  // IDs of fixed vertices during optimization
-  double *fixIn = mxGetPr( prhs[8] );
-  int numFixed = (int) mxGetM( prhs[8] );
-
   // Map input arrays to Eigen-style matrix
   MatrixXd V = Eigen::Map<MatrixXd>(vIn, numV, 3);
   MatrixXd x = Eigen::Map<MatrixXd>(xIn, numV, 2);
@@ -84,19 +78,15 @@ void mexFunction( int nlhs, mxArray *plhs[],
   MatrixXi F = Fd.cast <int> ();
   F = (F.array() - 1).matrix(); // Account for MATLAB indexing
 
-  VectorXd fixD = Eigen::Map<VectorXd>(fixIn, numFixed, 1);
-  VectorXi fixIDx = fixD.cast <int> ();
-  fixIDx = (fixIDx.array() - 1).matrix(); // Account for MATLAB indexing
+  MatrixXd muR = Eigen::Map<MatrixXd>(muIn, numV, 2);
+  CmplxVector mu(numV, 1);
+  mu.real() = muR.col(0);
+  mu.imag() = muR.col(1);
 
-  MatrixXd initMuR = Eigen::Map<MatrixXd>(muIn, numV, 2);
-  CmplxVector initMu(numV, 1);
-  initMu.real() = initMuR.col(0);
-  initMu.imag() = initMuR.col(1);
-
-  MatrixXd initWR = Eigen::Map<MatrixXd>(wIn, numV, 2);
-  CmplxVector initW(numV, 1);
-  initW.real() = initWR.col(0);
-  initW.imag() = initWR.col(1);
+  MatrixXd wR = Eigen::Map<MatrixXd>(wIn, numV, 2);
+  CmplxVector w(numV, 1);
+  w.real() = wR.col(0);
+  w.imag() = wR.col(1);
 
   // Process MINGROC Input Options ------------------------------------------------------
   
@@ -254,7 +244,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
     mingrocParam.useVectorEnergy =
       *mxGetLogicals(mxGetFieldByNumber( prhs[3], 0, idx));
   }
-  
+
   // Process NNI Input Options ----------------------------------------------------------
   
   NNIpp::NNIParam<double> nniParam( numV, 3 );
@@ -363,7 +353,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
   }
 
   //-------------------------------------------------------------------------------------
-  // RUN OPTIMIZATION
+  // COMPUTE ENERGY
   //-------------------------------------------------------------------------------------
 
   if ( mingrocParam.useVectorEnergy )
@@ -375,44 +365,28 @@ void mexFunction( int nlhs, mxArray *plhs[],
   // Generate a MINGROC object
   MINGROCpp::MINGROC<double, int> mingroc(F, V, x, mingrocParam, nniParam);
 
-  double E = 0.0;
-  CmplxVector mu = initMu;
-  CmplxVector w = initW;
-  MatrixXd map3D = finMap3D;
+  // Generate the final surface interpolant
+  NNIpp::NaturalNeighborInterpolant<double> NNI(x.col(0), x.col(1), finMap3D, nniParam);
 
-  try {
+  // Calculate the energy
+  MatrixXd map3D(numV, 3);
+  VectorXd gamma(numV, 1);
 
-    mingroc( finMap3D, initMu, initW, fixIDx, E, mu, w, map3D );
+  // auto start = std::chrono::high_resolution_clock::now();
+  double E = mingroc.calculateEnergy(mu, w, NNI, true, true, map3D, gamma);
+  // auto stop = std::chrono::high_resolution_clock::now();
 
-  } catch (const std::exception &e) {
+  // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop-start);
+  // std::cout << ( 1.0e-6 * duration.count() ) << " seconds." << std::endl;
 
-    mexWarnMsgTxt(e.what());
-
-  }
-
-  //-------------------------------------------------------------------------------------
-  // OUTPUT PROCESSING
-  //-------------------------------------------------------------------------------------
-
+  // Output results
   plhs[0] = mxCreateDoubleScalar(E);
 
-  plhs[1] = mxCreateDoubleMatrix(numV, 1, mxCOMPLEX);
-  mxComplexDouble *muOut = mxGetComplexDoubles(plhs[1]);
+  plhs[1] = mxCreateDoubleMatrix( numV, 3, mxREAL );
+  Eigen::Map<Eigen::MatrixXd>(mxGetPr(plhs[1]), numV, 3) = map3D;
 
-  plhs[2] = mxCreateDoubleMatrix(numV, 1, mxCOMPLEX);
-  mxComplexDouble *wOut = mxGetComplexDoubles(plhs[2]);
-
-  for( int i = 0; i < numV; i++ )
-  {
-    muOut[i].real = mu(i).real();
-    muOut[i].imag = mu(i).imag();
-
-    wOut[i].real = w(i).real();
-    wOut[i].imag = w(i).imag();
-  }
-
-  plhs[3] = mxCreateDoubleMatrix( numV, 3, mxREAL );
-  Eigen::Map<MatrixXd>(mxGetPr(plhs[3]), numV, 3) = map3D;
+  plhs[2] = mxCreateDoubleMatrix( numV, 1, mxREAL );
+  Eigen::Map<Eigen::MatrixXd>(mxGetPr(plhs[2]), numV, 1) = gamma;
 
   return;
 
