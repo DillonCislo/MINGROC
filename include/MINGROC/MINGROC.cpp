@@ -1293,7 +1293,7 @@ void MINGROCpp::MINGROC<Scalar, Index>::mingrocSimultaneous(
   // Initial guess processing -----------------------------------------------------------
  
   // Initial guess for final embedding is just the input 3D triangulation
-  map3D = finMap3D;
+  // map3D = finMap3D;
   
   // Set the initial 2D quasiconformal parameterization from input
   w = initMap;
@@ -1329,7 +1329,9 @@ void MINGROCpp::MINGROC<Scalar, Index>::mingrocSimultaneous(
   }
 
   // Generate the final surface interpolant
-  NNIpp::NaturalNeighborInterpolant<Scalar> NNI(w.real(), w.imag(), finMap3D, m_nniParam);
+  // NNIpp::NaturalNeighborInterpolant<Scalar> NNI(w.real(), w.imag(), finMap3D, m_nniParam);
+  NNIpp::NaturalNeighborInterpolant<Scalar> NNI(m_x.col(0), m_x.col(1), finMap3D, m_nniParam);
+  NNI( w.real(), w.imag(), map3D );
 
   // Fixed point processing -------------------------------------------------------------
   
@@ -1641,7 +1643,7 @@ void MINGROCpp::MINGROC<Scalar, Index>::mingrocAlternating(
   // Initial guess processing -----------------------------------------------------------
  
   // Initial guess for final embedding is just the input 3D triangulation
-  map3D = finMap3D;
+  // map3D = finMap3D;
   
   // Set the initial 2D quasiconformal parameterization from input
   w = initMap;
@@ -1676,7 +1678,9 @@ void MINGROCpp::MINGROC<Scalar, Index>::mingrocAlternating(
   }
 
   // Generate the final surface interpolant
-  NNIpp::NaturalNeighborInterpolant<Scalar> NNI(w.real(), w.imag(), finMap3D, m_nniParam);
+  // NNIpp::NaturalNeighborInterpolant<Scalar> NNI(w.real(), w.imag(), finMap3D, m_nniParam);
+  NNIpp::NaturalNeighborInterpolant<Scalar> NNI(m_x.col(0), m_x.col(1), finMap3D, m_nniParam);
+  NNI( w.real(), w.imag(), map3D );
 
   // Fixed point processing -------------------------------------------------------------
   
