@@ -271,7 +271,7 @@ patch( 'Faces', F, 'Vertices', map3D, ...
     'FaceColor', 'interp', 'EdgeColor', 'k' );
 axis equal tight
 colorbar
-set(gca, 'Clim', [min(finGamma3D), max(finGamma3D)]);
+% set(gca, 'Clim', [min(finGamma3D), max(finGamma3D)]);
 % set(gca, 'Clim', [0, 0.5]);
 
 subplot(2,2,4)
