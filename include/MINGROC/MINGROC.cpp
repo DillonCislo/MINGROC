@@ -598,35 +598,60 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::calculateEnergy (
   if ( calcGrowthEnergy )
   {
 
-    /* -----------------------------------------------------------------
-    // OLD PLAIN ENERGY WITHOUT INVERSE AREA RATIO 
-    if ( m_param.use3DEnergy ) {
-      E = (gamma.transpose() * m_L3D0 * gamma).array().sum() / m_A3D0Tot;
-    } else {
-      E = (gamma.transpose() * m_L2D * gamma).array().sum() / m_A2DTot;
+    if (m_param.AGC > Scalar(0.0))
+    {
+
+      Scalar EAGC = Scalar(0.0);
+      /* -----------------------------------------------------------------
+      // OLD PLAIN ENERGY WITHOUT INVERSE AREA RATIO 
+      if ( m_param.use3DEnergy ) {
+        EAGC = (gamma.transpose() * m_L3D0 * gamma).array().sum() / m_A3D0Tot;
+      } else {
+        EAGC = (gamma.transpose() * m_L2D * gamma).array().sum() / m_A2DTot;
+      }
+      ----------------------------------------------------------------- */
+
+      if ( m_param.use3DEnergy ) {
+
+        Vector gradGamma = m_G3D0 * gamma;
+        Vector gradGammaSquared = Vector::Zero(numF);
+        for( int i = 0; i < numF; i++ )
+          for( int j = 0; j < 3; j++ )
+            gradGammaSquared(i) += gradGamma(i+j*numF) * gradGamma(i+j*numF);
+
+        EAGC = ( m_AF3D0.array() * gradGammaSquared.array() / gammaF.array() ).sum();
+        EAGC = EAGC / m_A3D0Tot;
+
+      } else {
+
+        Vector DgammaDx = m_Dx * gamma;
+        Vector DgammaDy = m_Dy * gamma;
+        Vector gradGammaSquared = ( DgammaDx.array().square() + 
+          DgammaDy.array().square() ).matrix();
+        EAGC = ( m_AF2D.array() * gradGammaSquared.array() / gammaF.array() ).sum();
+        EAGC = EAGC / m_A2DTot;
+
+      }
+
+      E += m_param.AGC * EAGC;
     }
-    ----------------------------------------------------------------- */
 
-    if ( m_param.use3DEnergy ) {
+    if (m_param.AC > Scalar(0.0))
+    {
+      Scalar EAC = Scalar(0.0);
+      if ( m_param.use3DEnergy ) {
 
-      Vector gradGamma = m_G3D0 * gamma;
-      Vector gradGammaSquared = Vector::Zero(numF);
-      for( int i = 0; i < numF; i++ )
-        for( int j = 0; j < 3; j++ )
-          gradGammaSquared(i) += gradGamma(i+j*numF) * gradGamma(i+j*numF);
+        EAC = ( m_AF3D0.array() * gammaF.array() * gammaF.array() ).sum();
+        EAC = EAC / m_A3D0Tot;
 
-      E = ( m_AF3D0.array() * gradGammaSquared.array() / gammaF.array() ).sum();
-      E = E / m_A3D0Tot;
+      } else {
 
-    } else {
+        EAC = ( m_AF2D.array() * gammaF.array() * gammaF.array() ).sum();
+        EAC = EAC / m_A2DTot;
 
-      Vector DgammaDx = m_Dx * gamma;
-      Vector DgammaDy = m_Dy * gamma;
-      Vector gradGammaSquared = ( DgammaDx.array().square() + 
-        DgammaDy.array().square() ).matrix();
-      E = ( m_AF2D.array() * gradGammaSquared.array() / gammaF.array() ).sum();
-      E = E / m_A2DTot;
+      }
 
+      E += m_param.AC * EAC;
     }
 
   }
@@ -745,10 +770,6 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::calculateEnergyAndGrad (
 
   } else {
 
-    //-----------------------------------------------------------------------------------
-    // Calculate MINGRO Energy
-    //-----------------------------------------------------------------------------------
-    
     // Calculate updated 3D vertex locations
     map3D = Matrix::Zero(numV, 3);
     Matrix Dmap3DDu(numV, 3);
@@ -781,41 +802,74 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::calculateEnergyAndGrad (
     Vector gammaF = dblA_F.array() / m_dblA0_F.array();
     // gamma = m_F2V * gammaF;
     gamma = m_F2VRaw * gammaF;
+
+    //-----------------------------------------------------------------------------------
+    // Calculate MINGRO Energy
+    //-----------------------------------------------------------------------------------
     
-    /* -------------------------------------------------------------------
-    // OLD PLAIN ENERGY WITHTOUT INVERSE AREA RATIO
-    if ( m_param.use3DEnergy ) {
-      E = (gamma.transpose() * m_L3D0 * gamma).array().sum() / m_A3D0Tot;
-    } else {
-      E = (gamma.transpose() * m_L2D * gamma).array().sum() / m_A2DTot;
-    }
-    ------------------------------------------------------------------- */
-    
+    Scalar EAGC = Scalar(0.0);
     Vector gradGammaSquared = Vector::Zero(numF);
-    if ( m_param.use3DEnergy ) {
+    if (m_param.AGC > Scalar(0.0))
+    {
+      /* -------------------------------------------------------------------
+      // OLD PLAIN ENERGY WITHTOUT INVERSE AREA RATIO
+      if ( m_param.use3DEnergy ) {
+        EAGC = (gamma.transpose() * m_L3D0 * gamma).array().sum() / m_A3D0Tot;
+      } else {
+        EAGC = (gamma.transpose() * m_L2D * gamma).array().sum() / m_A2DTot;
+      }
+      ------------------------------------------------------------------- */
+      
+      if ( m_param.use3DEnergy ) {
 
-      Vector gradGamma = m_G3D0 * gamma;
-      for( int i = 0; i < numF; i++ )
-        for( int j = 0; j < 3; j++ )
-          gradGammaSquared(i) += gradGamma(i+j*numF) * gradGamma(i+j*numF);
+        Vector gradGamma = m_G3D0 * gamma;
+        for( int i = 0; i < numF; i++ )
+          for( int j = 0; j < 3; j++ )
+            gradGammaSquared(i) += gradGamma(i+j*numF) * gradGamma(i+j*numF);
 
-      E = ( m_AF3D0.array() * gradGammaSquared.array() / gammaF.array() ).sum();
-      E = E / m_A3D0Tot;
+        EAGC = ( m_AF3D0.array() * gradGammaSquared.array() / gammaF.array() ).sum();
+        EAGC = EAGC / m_A3D0Tot;
 
-    } else {
+      } else {
 
-      Vector DgammaDx = m_Dx * gamma;
-      Vector DgammaDy = m_Dy * gamma;
-      gradGammaSquared = ( DgammaDx.array().square() + 
-        DgammaDy.array().square() ).matrix();
-      E = ( m_AF2D.array() * gradGammaSquared.array() / gammaF.array() ).sum();
-      E = E / m_A2DTot;
+        Vector DgammaDx = m_Dx * gamma;
+        Vector DgammaDy = m_Dy * gamma;
+        gradGammaSquared = ( DgammaDx.array().square() + 
+          DgammaDy.array().square() ).matrix();
+        EAGC = ( m_AF2D.array() * gradGammaSquared.array() / gammaF.array() ).sum();
+        EAGC = EAGC / m_A2DTot;
 
+      }
+
+      E += m_param.AGC * EAGC;
+    }
+
+    //-----------------------------------------------------------------------------------
+    // Compute Growth Magnitude Energy
+    //-----------------------------------------------------------------------------------
+    Scalar EAC = Scalar(0.0);
+    if (m_param.AC > Scalar(0.0))
+    {
+      if ( m_param.use3DEnergy ) {
+
+        EAC = ( m_AF3D0.array() * gammaF.array() * gammaF.array() ).sum();
+        EAC = EAC / m_A3D0Tot;
+
+      } else {
+
+        EAC = ( m_AF2D.array() * gammaF.array() * gammaF.array() ).sum();
+        EAC = EAC / m_A2DTot;
+
+      }
+
+      E += m_param.AC * EAC;
     }
 
     //-----------------------------------------------------------------------------------
     // Calculate Gradients With Respect to the Quasiconformal Parameterization
     //-----------------------------------------------------------------------------------
+    // The following fields (outside the if statements checking AGC and AC) are
+    // used for all areal growth energy computations
     
     // Calculate the gradient of the updated double face areas with respect to the
     // quasiconformal parameterization. Entry DgammaFDu(f,i) is the gradient of the
@@ -873,185 +927,251 @@ Scalar MINGROCpp::MINGROC<Scalar, Index>::calculateEnergyAndGrad (
     Eigen::SparseMatrix<Scalar> DgammaFDv_Mat(numF, numV);
     DgammaFDv_Mat.setFromTriplets( tListDgFDv.begin(), tListDgFDv.end() );
 
-    /* ------------------------------------------------------------------------
-    // OLD PLAIN ENERGY GRADIENT WITHOUT INVERSE FACE AREA RATIO
-    // This is unfortunately much simpler and faster...
-
-    ArrayVec dEdu, dEdv;
-    if ( m_param.use3DEnergy ) {
-
-      dEdu = (gammaF.transpose() * m_LF3D0 * DgammaFDu_Mat).transpose().array();
-      dEdu = Scalar(2.0) * dEdu / m_A3D0Tot;
-
-      dEdv = (gammaF.transpose() * m_LF3D0 * DgammaFDv_Mat).transpose().array();
-      dEdv = Scalar(2.0) * dEdv / m_A3D0Tot;
-
-    } else {
-
-      dEdu = (gammaF.transpose() * m_LF2D * DgammaFDu_Mat).transpose().array();
-      dEdu = Scalar(2.0) * dEdu / m_A2DTot;
-
-      dEdv = (gammaF.transpose() * m_LF2D * DgammaFDv_Mat).transpose().array();
-      dEdv = Scalar(2.0) * dEdv / m_A2DTot;
-
-    }
-
-    ------------------------------------------------------------------------- */
-
-    // Calculate the gradient of the vertex based growth factors. Columns now
-    // correspond to vertices. Row i represents the derivatives of all vertex-
-    // based gamma factors with respect to the 2D parameterization of vertex i
-    // Eigen::SparseMatrix<Scalar> DgammaDu = (m_F2V * DgammaFDu_Mat).transpose();
-    // Eigen::SparseMatrix<Scalar> DgammaDv = (m_F2V * DgammaFDv_Mat).transpose();
-    Eigen::SparseMatrix<Scalar> DgammaDu = (m_F2VRaw * DgammaFDu_Mat).transpose();
-    Eigen::SparseMatrix<Scalar> DgammaDv = (m_F2VRaw * DgammaFDv_Mat).transpose();
-
-    // Shuffle matrix columns based on vertex ordering within faces to facilitate
-    // vectorized gradient calculation
-    Eigen::SparseMatrix<Scalar> DgammaIDu(numV, numF);
-    Eigen::SparseMatrix<Scalar> DgammaJDu(numV, numF);
-    Eigen::SparseMatrix<Scalar> DgammaKDu(numV, numF);
-
-    igl::slice(DgammaDu, m_F.col(0), 2, DgammaIDu);
-    igl::slice(DgammaDu, m_F.col(1), 2, DgammaJDu);
-    igl::slice(DgammaDu, m_F.col(2), 2, DgammaKDu);
-
-    Eigen::SparseMatrix<Scalar> DgammaIDv(numV, numF);
-    Eigen::SparseMatrix<Scalar> DgammaJDv(numV, numF);
-    Eigen::SparseMatrix<Scalar> DgammaKDv(numV, numF);
-
-    igl::slice(DgammaDv, m_F.col(0), 2, DgammaIDv);
-    igl::slice(DgammaDv, m_F.col(1), 2, DgammaJDv);
-    igl::slice(DgammaDv, m_F.col(2), 2, DgammaKDv);
-
-    // Some convenience variables for the following calculations
-    ArrayVec li2, lj2, lk2;
-    if ( m_param.use3DEnergy ) {
-
-      li2 = m_L2F3D0.col(0).array();
-      lj2 = m_L2F3D0.col(1).array();
-      lk2 = m_L2F3D0.col(2).array();
-
-    } else {
-
-      li2 = m_L2F2D.col(0).array();
-      lj2 = m_L2F2D.col(1).array();
-      lk2 = m_L2F2D.col(2).array();
-
-    }
-    
-    ArrayVec gi = gamma(m_F.col(0), Eigen::all).array();
-    ArrayVec gj = gamma(m_F.col(1), Eigen::all).array();
-    ArrayVec gk = gamma(m_F.col(2), Eigen::all).array();
-    
-    Vector Ci = -(li2 * ((gj-gi)-(gi-gk)) + (lk2-lj2) * (gk-gj)).matrix();
-    Vector Cj = -(lj2 * ((gk-gj)-(gj-gi)) + (li2-lk2) * (gi-gk)).matrix();
-    Vector Ck = -(lk2 * ((gi-gk)-(gk-gj)) + (lj2-li2) * (gj-gi)).matrix();
-
-    /* ----------------------------------------------------------------------
-    // OLD PLAIN ENERGY GRADIENT WITHOUT INVERSE FACE AREA RATIO
-    // Add raw gradient per-face factors (i.e. no inverse area ratio)
-    
-    ArrayVec CPFF;
-    if ( m_param.use3DEnergy ) {
-      CPFF = m_AF3D0.array().inverse() / Scalar(4.0);
-      // CPFF = m_AF2D.array() / (Scalar(4.0) * m_AF3D0.array().square());
-    } else {
-      CPFF = m_AF2D.array().inverse() / Scalar(4.0);
-      // CPFF = m_AF2D.array() / (Scalar(4.0) * m_AF2D.array().square());
-    }
-    --------------------------------------------------------------------------*/
-    
-    // Add per-face factors including inverse area ratio
-    // Recall that gammaF = dblA_F.array() / m_dblA0_F.array();
-    ArrayVec CPFF;
-    if ( m_param.use3DEnergy ) {
-      CPFF = Scalar(1.0) / (Scalar(2.0) * dblA_F.array());
-      // CPFF = Scalar(1.0) / (Scalar(4.0) * m_AF3D0.array() * gammaF.array());
-      // CPFF = m_AF3D0.array() / (Scalar(4.0) * m_AF3D0.array().square() * gammaF.array());
-    } else {
-      CPFF = Scalar(1.0) / (Scalar(4.0) * m_AF2D.array() * gammaF.array());
-      // CPFF = m_AF2D.array() / (Scalar(4.0) * m_AF2D.array().square() * gammaF.array());
-    }
-    
-    Ci = (CPFF * Ci.array()).matrix();
-    Cj = (CPFF * Cj.array()).matrix();
-    Ck = (CPFF * Ck.array()).matrix();
-
-    ArrayVec dEdu(numV);
-    dEdu = ( Ci.transpose() * DgammaIDu.transpose()
-           + Cj.transpose() * DgammaJDu.transpose()
-           + Ck.transpose() * DgammaKDu.transpose() ).transpose().array();
-
-    ArrayVec dEdv(numV);
-    dEdv = ( Ci.transpose() * DgammaIDv.transpose()
-           + Cj.transpose() * DgammaJDv.transpose()
-           + Ck.transpose() * DgammaKDv.transpose() ).transpose().array();
-
-    // Add derivatives for inverse face area ratio
-    Array LDFF;
-    if ( m_param.use3DEnergy ) {
-      LDFF =(-m_AF3D0.array() * gradGammaSquared.array() /
-        gammaF.array()).replicate(1,3).array();
-    } else {
-      LDFF =(-m_AF2D.array() * gradGammaSquared.array() /
-        gammaF.array()).replicate(1,3).array();
-    }
-
-    DlogAFDu = (LDFF * DlogAFDu.array()).matrix();
-    DlogAFDv = (LDFF * DlogAFDv.array()).matrix();
-    
-    for( int i = 0; i < numF; i++ )
+    //-----------------------------------------------------------------------------------
+    // Calculate MINGRO Energy Gradients
+    //-----------------------------------------------------------------------------------
+    if (m_param.AGC > Scalar(0.0))
     {
-      for( int j = 0; j < 3; j++ )
-      {
-        dEdu(m_F(i,j)) += DlogAFDu(i,j);
-        dEdv(m_F(i,j)) += DlogAFDv(i,j);
+
+      /* ------------------------------------------------------------------------
+      // OLD PLAIN ENERGY GRADIENT WITHOUT INVERSE FACE AREA RATIO
+      // This is unfortunately much simpler and faster...
+
+      ArrayVec dEdu, dEdv;
+      if ( m_param.use3DEnergy ) {
+
+        dEdu = (gammaF.transpose() * m_LF3D0 * DgammaFDu_Mat).transpose().array();
+        dEdu = Scalar(2.0) * dEdu / m_A3D0Tot;
+
+        dEdv = (gammaF.transpose() * m_LF3D0 * DgammaFDv_Mat).transpose().array();
+        dEdv = Scalar(2.0) * dEdv / m_A3D0Tot;
+
+      } else {
+
+        dEdu = (gammaF.transpose() * m_LF2D * DgammaFDu_Mat).transpose().array();
+        dEdu = Scalar(2.0) * dEdu / m_A2DTot;
+
+        dEdv = (gammaF.transpose() * m_LF2D * DgammaFDv_Mat).transpose().array();
+        dEdv = Scalar(2.0) * dEdv / m_A2DTot;
+
       }
+
+      ------------------------------------------------------------------------- */
+
+      // Calculate the gradient of the vertex based growth factors. Columns now
+      // correspond to vertices. Row i represents the derivatives of all vertex-
+      // based gamma factors with respect to the 2D parameterization of vertex i
+      // Eigen::SparseMatrix<Scalar> DgammaDu = (m_F2V * DgammaFDu_Mat).transpose();
+      // Eigen::SparseMatrix<Scalar> DgammaDv = (m_F2V * DgammaFDv_Mat).transpose();
+      Eigen::SparseMatrix<Scalar> DgammaDu = (m_F2VRaw * DgammaFDu_Mat).transpose();
+      Eigen::SparseMatrix<Scalar> DgammaDv = (m_F2VRaw * DgammaFDv_Mat).transpose();
+
+      // Shuffle matrix columns based on vertex ordering within faces to facilitate
+      // vectorized gradient calculation
+      Eigen::SparseMatrix<Scalar> DgammaIDu(numV, numF);
+      Eigen::SparseMatrix<Scalar> DgammaJDu(numV, numF);
+      Eigen::SparseMatrix<Scalar> DgammaKDu(numV, numF);
+
+      igl::slice(DgammaDu, m_F.col(0), 2, DgammaIDu);
+      igl::slice(DgammaDu, m_F.col(1), 2, DgammaJDu);
+      igl::slice(DgammaDu, m_F.col(2), 2, DgammaKDu);
+
+      Eigen::SparseMatrix<Scalar> DgammaIDv(numV, numF);
+      Eigen::SparseMatrix<Scalar> DgammaJDv(numV, numF);
+      Eigen::SparseMatrix<Scalar> DgammaKDv(numV, numF);
+
+      igl::slice(DgammaDv, m_F.col(0), 2, DgammaIDv);
+      igl::slice(DgammaDv, m_F.col(1), 2, DgammaJDv);
+      igl::slice(DgammaDv, m_F.col(2), 2, DgammaKDv);
+
+      // Some convenience variables for the following calculations
+      ArrayVec li2, lj2, lk2;
+      if ( m_param.use3DEnergy ) {
+
+        li2 = m_L2F3D0.col(0).array();
+        lj2 = m_L2F3D0.col(1).array();
+        lk2 = m_L2F3D0.col(2).array();
+
+      } else {
+
+        li2 = m_L2F2D.col(0).array();
+        lj2 = m_L2F2D.col(1).array();
+        lk2 = m_L2F2D.col(2).array();
+
+      }
+      
+      ArrayVec gi = gamma(m_F.col(0), Eigen::all).array();
+      ArrayVec gj = gamma(m_F.col(1), Eigen::all).array();
+      ArrayVec gk = gamma(m_F.col(2), Eigen::all).array();
+      
+      Vector Ci = -(li2 * ((gj-gi)-(gi-gk)) + (lk2-lj2) * (gk-gj)).matrix();
+      Vector Cj = -(lj2 * ((gk-gj)-(gj-gi)) + (li2-lk2) * (gi-gk)).matrix();
+      Vector Ck = -(lk2 * ((gi-gk)-(gk-gj)) + (lj2-li2) * (gj-gi)).matrix();
+
+      /* ----------------------------------------------------------------------
+      // OLD PLAIN ENERGY GRADIENT WITHOUT INVERSE FACE AREA RATIO
+      // Add raw gradient per-face factors (i.e. no inverse area ratio)
+      
+      ArrayVec CPFF;
+      if ( m_param.use3DEnergy ) {
+        CPFF = m_AF3D0.array().inverse() / Scalar(4.0);
+        // CPFF = m_AF2D.array() / (Scalar(4.0) * m_AF3D0.array().square());
+      } else {
+        CPFF = m_AF2D.array().inverse() / Scalar(4.0);
+        // CPFF = m_AF2D.array() / (Scalar(4.0) * m_AF2D.array().square());
+      }
+      --------------------------------------------------------------------------*/
+      
+      // Add per-face factors including inverse area ratio
+      // Recall that gammaF = dblA_F.array() / m_dblA0_F.array();
+      ArrayVec CPFF;
+      if ( m_param.use3DEnergy ) {
+        CPFF = Scalar(1.0) / (Scalar(2.0) * dblA_F.array());
+        // CPFF = Scalar(1.0) / (Scalar(4.0) * m_AF3D0.array() * gammaF.array());
+        // CPFF = m_AF3D0.array() / (Scalar(4.0) * m_AF3D0.array().square() * gammaF.array());
+      } else {
+        CPFF = Scalar(1.0) / (Scalar(4.0) * m_AF2D.array() * gammaF.array());
+        // CPFF = m_AF2D.array() / (Scalar(4.0) * m_AF2D.array().square() * gammaF.array());
+      }
+      
+      Ci = (CPFF * Ci.array()).matrix();
+      Cj = (CPFF * Cj.array()).matrix();
+      Ck = (CPFF * Ck.array()).matrix();
+
+      ArrayVec dEdu(numV);
+      dEdu = ( Ci.transpose() * DgammaIDu.transpose()
+            + Cj.transpose() * DgammaJDu.transpose()
+            + Ck.transpose() * DgammaKDu.transpose() ).transpose().array();
+
+      ArrayVec dEdv(numV);
+      dEdv = ( Ci.transpose() * DgammaIDv.transpose()
+            + Cj.transpose() * DgammaJDv.transpose()
+            + Ck.transpose() * DgammaKDv.transpose() ).transpose().array();
+
+      // Add derivatives for inverse face area ratio
+      Array LDFF;
+      if ( m_param.use3DEnergy ) {
+        LDFF =(-m_AF3D0.array() * gradGammaSquared.array() /
+          gammaF.array()).replicate(1,3).array();
+      } else {
+        LDFF =(-m_AF2D.array() * gradGammaSquared.array() /
+          gammaF.array()).replicate(1,3).array();
+      }
+
+      DlogAFDu = (LDFF * DlogAFDu.array()).matrix();
+      DlogAFDv = (LDFF * DlogAFDv.array()).matrix();
+      
+      for( int i = 0; i < numF; i++ )
+      {
+        for( int j = 0; j < 3; j++ )
+        {
+          dEdu(m_F(i,j)) += DlogAFDu(i,j);
+          dEdv(m_F(i,j)) += DlogAFDv(i,j);
+        }
+      }
+
+      // Normalize by total mesh area
+      if ( m_param.use3DEnergy ) {
+        dEdu = dEdu / m_A3D0Tot; dEdv = dEdv / m_A3D0Tot;
+      } else {
+        dEdu = dEdu / m_A2DTot; dEdv = dEdv / m_A2DTot;
+      }
+
+      // Multiply by the energy coefficient
+      dEdu = m_param.AGC * dEdu;
+      dEdv = m_param.AGC * dEdv;
+
+      // Calculate Gradients With Respect to the Beltrami Coefficient -----------------------
+      #pragma omp parallel for if (numV > 500)
+      for( int i = 0; i < numV; i++ ) {
+
+
+        /* I'm including this bit of inefficient code as a comment
+        * to make the structure of the chain rule derivatives for mu
+        * more transparent
+
+        // Each of these is a #V by 1 matrix
+        ArrayVec dudmu1 = G1.col(i);
+        ArrayVec dudmu2 = G2.col(i);
+        ArrayVec dvdmu1 = G3.col(i);
+        ArrayVec dvdmu2 = G4.col(i);
+
+        Scalar dEdmu1 = (dEdu * dudmu1 + dEdv * dvdmu1).sum();
+        Scalar dEdmu2 = (dEdu * dudmu2 + dEdv * dvdmu2).sum();
+
+        */
+
+        Scalar dEdmu1 = (dEdu * G1.col(i) + dEdv * G3.col(i)).sum();
+        Scalar dEdmu2 = (dEdu * G2.col(i) + dEdv * G4.col(i)).sum();
+
+        gradMu(i) = CScalar(dEdmu1, dEdmu2);
+
+      }
+
+      if (m_param.iterDispDetailed)
+      {
+        std::cout << "Growth Gradient Energy = " << (m_param.AGC * EAGC)
+          << ", Growth Gradient Energy W Grad Norm = " << (dEdu.matrix().norm()+dEdv.matrix().norm())
+          << ", Growth Gradient Energy Grad Norm = " << gradMu.matrix().norm() << std::endl;
+      }
+
     }
 
-    // Normalize by total mesh area
-    if ( m_param.use3DEnergy ) {
-      dEdu = dEdu / m_A3D0Tot; dEdv = dEdv / m_A3D0Tot;
-    } else {
-      dEdu = dEdu / m_A2DTot; dEdv = dEdv / m_A2DTot;
-    }
-
-    // ------------------------------------------------------------------------------------
-    // Calculate Gradients With Respect to the Beltrami Coefficient
-    // ------------------------------------------------------------------------------------
-    
-    #pragma omp parallel for if (numV > 500)
-    for( int i = 0; i < numV; i++ ) {
-
-
-      /* I'm including this bit of inefficient code as a comment
-       * to make the structure of the chain rule derivatives for mu
-       * more transparent
-
-      // Each of these is a #V by 1 matrix
-      ArrayVec dudmu1 = G1.col(i);
-      ArrayVec dudmu2 = G2.col(i);
-      ArrayVec dvdmu1 = G3.col(i);
-      ArrayVec dvdmu2 = G4.col(i);
-
-      Scalar dEdmu1 = (dEdu * dudmu1 + dEdv * dvdmu1).sum();
-      Scalar dEdmu2 = (dEdu * dudmu2 + dEdv * dvdmu2).sum();
-
-      */
-
-      Scalar dEdmu1 = (dEdu * G1.col(i) + dEdv * G3.col(i)).sum();
-      Scalar dEdmu2 = (dEdu * G2.col(i) + dEdv * G4.col(i)).sum();
-
-      gradMu(i) = CScalar(dEdmu1, dEdmu2);
-
-    }
-
-    if (m_param.iterDispDetailed)
+    //-----------------------------------------------------------------------------------
+    // Compute Growth Magnitude Energy Gradients
+    //-----------------------------------------------------------------------------------
+    if (m_param.AC > Scalar(0.0))
     {
-      std::cout << "Growth Energy = " << E 
-        << ", Growth Energy W Grad Norm = " << (dEdu.matrix().norm()+dEdv.matrix().norm())
-        << ", Growth Energy Grad Norm = " << gradMu.matrix().norm() << std::endl;
+      ArrayVec dEACdu(numV);
+      ArrayVec dEACdv(numV);
+
+      if ( m_param.use3DEnergy ) {
+
+        dEACdu = gammaF.array() * m_AF3D0.array();
+        dEACdu = (dEACdu.matrix().transpose() * DgammaFDu_Mat).transpose().array();
+        dEACdu = Scalar(2.0) * dEACdu / m_A3D0Tot;
+
+        dEACdv = gammaF.array() * m_AF3D0.array();
+        dEACdv = (dEACdv.matrix().transpose() * DgammaFDv_Mat).transpose().array();
+        dEACdv = Scalar(2.0) * dEACdv / m_A3D0Tot;
+
+      } else {
+
+        dEACdu = gammaF.array() * m_AF2D.array();
+        dEACdu = (dEACdu.matrix().transpose() * DgammaFDu_Mat).transpose().array();
+        dEACdu = Scalar(2.0) * dEACdu / m_A2DTot;
+
+        dEACdv = gammaF.array() * m_AF2D.array();
+        dEACdv = (dEACdv.matrix().transpose() * DgammaFDv_Mat).transpose().array();
+        dEACdv = Scalar(2.0) * dEACdv / m_A2DTot;
+
+      }
+
+      // Multiply by the energy coefficient
+      dEACdu = m_param.AC * dEACdu;
+      dEACdv = m_param.AC * dEACdv;
+
+      // Calculate Gradients With Respect to the Beltrami Coefficient -----------------------
+      CplxArrayVec gradMuAC(numV);
+      #pragma omp parallel for if (numV > 500)
+      for( int i = 0; i < numV; i++ ) {
+
+        Scalar dEACdmu1 = (dEACdu * G1.col(i) + dEACdv * G3.col(i)).sum();
+        Scalar dEACdmu2 = (dEACdu * G2.col(i) + dEACdv * G4.col(i)).sum();
+
+        gradMuAC(i) = CScalar(dEACdmu1, dEACdmu2);
+
+      }
+
+      if (m_param.iterDispDetailed)
+      {
+        std::cout << "Growth Magnitude Energy = " << (m_param.AC * EAC)
+          << ", Growth Magnitude Energy W Grad Norm = " << (dEACdu.matrix().norm()+dEACdv.matrix().norm())
+          << ", Growth Magnitude Energy Grad Norm = " << gradMuAC.matrix().norm() << std::endl;
+      }
+
+      gradMu = (gradMu.array() + gradMuAC).matrix();
+
     }
 
   }
@@ -1342,6 +1462,9 @@ void MINGROCpp::MINGROC<Scalar, Index>::mingrocSimultaneous(
   // ------------------------------------------------------------------------------------
   // Run the Beltrami Holomorphic Flow via L-BFGS
   // ------------------------------------------------------------------------------------
+
+  // Determine if we need to calculate the areal growth energy and gradients
+  bool calcGrowthEnergy = (m_param.AGC > Scalar(0.0)) || (m_param.AC > Scalar(0.0));
   
   // Optimization Pre-Processing --------------------------------------------------------
   
@@ -1402,7 +1525,7 @@ void MINGROCpp::MINGROC<Scalar, Index>::mingrocSimultaneous(
   CplxVector gradMu(numV, 1);
   Vector gamma(numV, 1);
   fx = this->calculateEnergyAndGrad(mu, w, G1, G2, G3, G4, NNI,
-      true, true, true, gradMu, map3D, gamma);
+      calcGrowthEnergy, true, true, gradMu, map3D, gamma);
   
   // Convert complex state format -> real state format
   x << mu.real(), mu.imag();
@@ -1484,7 +1607,7 @@ void MINGROCpp::MINGROC<Scalar, Index>::mingrocSimultaneous(
       // updated, but grad will not
       MINGROCpp::LineSearchBacktracking<Scalar, Index>::LineSearch(
           *this, m_param, NNI, fixIDx, drt, dw, grad,
-          true, true, fx, x, w, step);
+          calcGrowthEnergy, true, fx, x, w, step);
 
     } catch ( const std::runtime_error &ere ) {
 
@@ -1526,7 +1649,7 @@ void MINGROCpp::MINGROC<Scalar, Index>::mingrocSimultaneous(
 
     // Evaluate the function and gradient for initial configuration
     fx = this->calculateEnergyAndGrad(mu, w, G1, G2, G3, G4, NNI,
-        true, true, true, gradMu, map3D, gamma);
+        calcGrowthEnergy, true, true, gradMu, map3D, gamma);
     grad << gradMu.real(), gradMu.imag();
 
     // New vector norms
@@ -1691,6 +1814,9 @@ void MINGROCpp::MINGROC<Scalar, Index>::mingrocAlternating(
   // ------------------------------------------------------------------------------------
   // Run the Beltrami Holomorphic Flow via L-BFGS
   // ------------------------------------------------------------------------------------
+
+  // Determine if we need to calculate the areal growth energy and gradients
+  bool calcGrowthEnergy = (m_param.AGC > Scalar(0.0)) || (m_param.AC > Scalar(0.0));
   
   // Optimization Pre-Processing --------------------------------------------------------
   
@@ -1754,7 +1880,7 @@ void MINGROCpp::MINGROC<Scalar, Index>::mingrocAlternating(
   CplxVector gradMu(numV, 1);
   Vector gamma(numV, 1);
   fx = this->calculateEnergyAndGrad(mu, w, G1, G2, G3, G4, NNI,
-      true, true, true, gradMu, map3D, gamma);
+      calcGrowthEnergy, true, true, gradMu, map3D, gamma);
   
   // Convert complex state format -> real state format
   x << mu.real(), mu.imag();
@@ -1839,7 +1965,7 @@ void MINGROCpp::MINGROC<Scalar, Index>::mingrocAlternating(
       // updated, but grad will not.
       MINGROCpp::LineSearchBacktracking<Scalar, Index>::LineSearch(
           *this, m_param, NNI, fixIDx, drt, dw, grad,
-          true, true, fx, x, w, step);
+          calcGrowthEnergy, true, fx, x, w, step);
 
     } catch ( const std::runtime_error &ere ) {
 
@@ -1887,7 +2013,7 @@ void MINGROCpp::MINGROC<Scalar, Index>::mingrocAlternating(
 
       // Evaluate the objective function and gradient
       fx = this->calculateEnergyAndGrad(mu, w, G1, G2, G3, G4, NNI,
-          true, true, true, gradMu, map3D, gamma);
+          calcGrowthEnergy, true, true, gradMu, map3D, gamma);
       grad << gradMu.real(), gradMu.imag();
 
       // Make a copy of the current Beltrami coefficient
@@ -2086,7 +2212,7 @@ void MINGROCpp::MINGROC<Scalar, Index>::mingrocAlternating(
           step = Scalar(1.0);
           MINGROCpp::LineSearchBacktracking<Scalar, Index>::LineSearch(
               *this, m_param, NNI, fixIDx, dmu_real, dw, grad,
-              true, true, fx, x, w, step);
+              calcGrowthEnergy, true, fx, x, w, step);
 
         } catch ( const std::runtime_error &ere ) {
 
@@ -2131,7 +2257,7 @@ void MINGROCpp::MINGROC<Scalar, Index>::mingrocAlternating(
 
     // Evaluate the function and gradient
     fx = this->calculateEnergyAndGrad(mu, w, G1, G2, G3, G4, NNI,
-        true, true, true, gradMu, map3D, gamma);
+        calcGrowthEnergy, true, true, gradMu, map3D, gamma);
     grad << gradMu.real(), gradMu.imag();
 
     // New vector norms

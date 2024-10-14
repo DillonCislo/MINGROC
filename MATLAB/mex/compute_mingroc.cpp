@@ -189,6 +189,16 @@ void mexFunction( int nlhs, mxArray *plhs[],
     mingrocParam.wolfe = *mxGetPr(mxGetFieldByNumber( prhs[3], 0, idx ));
   }
 
+  // The areal growth rate gradient coefficient
+  if ( (idx = mxGetFieldNumber( prhs[3], "AGC" )) != -1 ) {
+    mingrocParam.AGC = *mxGetPr(mxGetFieldByNumber( prhs[3], 0, idx ));
+  }
+
+  // The areal growth rate coefficient
+  if ( (idx = mxGetFieldNumber( prhs[3], "AC" )) != -1 ) {
+    mingrocParam.AC = *mxGetPr(mxGetFieldByNumber( prhs[3], 0, idx ));
+  }
+
   // The conformality coefficient
   if ( (idx = mxGetFieldNumber( prhs[3], "CC" )) != -1 ) {
     mingrocParam.CC = *mxGetPr(mxGetFieldByNumber( prhs[3], 0, idx ));

@@ -269,6 +269,22 @@ namespace MINGROCpp {
 
       ///
       /// The coefficient of the term in the discrete energy that seeks
+      /// to minimize the magnitude of the gradient of the areal growth
+      /// rates. If this parameter is zero then this term is not included
+      /// in the energy. The default value is 1.0
+      ///
+      Scalar AGC;
+
+      ///
+      /// The coefficient of the term in the discrete energy that seeks
+      /// to minimize the magnitude of the areal growth rates. If this
+      /// parameter is zero then this term is not included in the energy.
+      /// The default value is zero.
+      ///
+      Scalar AC;
+
+      ///
+      /// The coefficient of the term in the discrete energy that seeks
       /// to minimize the magnitude of the Beltrami coefficient corresponding
       /// to the minimum information constant growth pattern (Conformality
       /// Coefficient). If this parameter is zero then this term is not

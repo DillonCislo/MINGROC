@@ -45,6 +45,8 @@ MINGROCpp::MINGROCParam<Scalar>::MINGROCParam() {
   maxStep = Scalar(1e20);
   ftol = Scalar(1e-4);
   wolfe = Scalar(0.9);
+  AGC = Scalar(1.0);
+  AC = Scalar(0.0);
   CC = Scalar(0.0);
   SC = Scalar(1.0);
   DC = Scalar(0.0);
@@ -120,6 +122,12 @@ MINGROC_INLINE void MINGROCpp::MINGROCParam<Scalar>::checkParam() const {
   if ( wolfe <= ftol || wolfe >= 1 )
     throw std::invalid_argument("'wolfe' must satisfy ftol < wolfe < 1");
 
+  if ( AGC < 0 )
+    throw std::invalid_argument("'AGC' must be non-negative");
+
+  if ( AC < 0 )
+    throw std::invalid_argument("'AC' must be non-negative");
+
   if ( CC < 0 )
     throw std::invalid_argument("'CC' must be non-negative");
 
@@ -130,8 +138,13 @@ MINGROC_INLINE void MINGROCpp::MINGROCParam<Scalar>::checkParam() const {
     throw std::invalid_argument("'DC' must be non-negative");
 
   if ((DC > 0) && (minimizationMethod == MINIMIZATION_ALTERNATING)) {
-    throw std::invalid_argument( "Alternating minimization method not yet "
+    throw std::invalid_argument("Alternating minimization method not yet "
         "compatible with diffeomorphic constraint" );
+  }
+
+  if ((AGC == 0) && (AC == 0) && (minimizationMethod == MINIMIZATION_ALTERNATING)) {
+    throw std::invalid_argument("Alternating minimization scheme must include at "
+        "least one type of areal growth energy (gradient or magnitude)");
   }
 
 };

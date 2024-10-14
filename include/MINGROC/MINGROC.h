@@ -94,7 +94,7 @@ namespace MINGROCpp {
       Eigen::SparseMatrix<Scalar> m_F2V;
 
       // #V by #F sparse matrix operator. Averages face-based quantities onto
-      // vertices using simple numeric averagin
+      // vertices using simple numeric averaging
       Eigen::SparseMatrix<Scalar> m_F2VRaw;
 
       // #F by #V sparse matrix operator. Averages vertex-based quantities

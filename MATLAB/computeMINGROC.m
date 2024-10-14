@@ -91,6 +91,16 @@ function [EG, mu, w, map3D] = computeMINGROC( ...
 %       search routine. This parameter should be greater than 0 and smaller
 %       than 0.5 and typically does not need to be modified (1e-4)
 %
+%       - mingrocOptions.AGC: The coefficient of the term in the discrete
+%       energy that seeks to minimize the magnitude of the gradient of the
+%       areal growth rates (Area Gradient Coefficient). If this parameter
+%       is zero, then this term is not included in the energy (1)
+%
+%       - mingrocOptions.AC: The coefficient of the term in the discrete
+%       energy that seeks to minimize the magnitude of the areal growth
+%       rates (Area Coefficient). If this parameter is zero, then this term
+%       is not included in the energy (0)
+%
 %       - mingrocOptions.CC: The coefficient of the term in the discrete
 %       energy that seeks to minimize the magnitude of the Beltrami
 %       coefficient corresponding to the minimum information constant
