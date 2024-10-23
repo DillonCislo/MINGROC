@@ -1,3 +1,15 @@
 [submodule "include/external/NNIpp"]
 	path = include/external/NNIpp
 	url = https://github.com/DillonCislo/NNIpp.git
+[submodule "include/external/libigl"]
+	path = include/external/libigl
+	url = https://github.com/libigl/libigl.git
+[submodule "include/external/libigl-predicates"]
+	path = include/external/libigl-predicates
+	url = https://github.com/libigl/libigl-predicates.git
+[submodule "include/external/DECLab"]
+	path = include/external/DECLab
+	url = https://github.com/DillonCislo/DECLab.git
+[submodule "include/external/RicciFlow_MATLAB"]
+	path = include/external/RicciFlow_MATLAB
+	url = https://github.com/DillonCislo/RicciFlow_MATLAB.git
