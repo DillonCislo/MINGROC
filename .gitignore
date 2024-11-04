@@ -31,6 +31,19 @@
 *.out
 *.app
 
-# Swap files
+# MATLAB swap files
 *.swp
 *.asv
+
+# Compiled MATLAB mex files
+*.mexa64
+*.mexmaci64
+*.mexw64
+
+# Extraneous external code
+include/external/CGAL-6.0.1/
+include/external/eigen-3.4.0/
+include/external/libigl-predicates/build
+
+# IDE related files
+.vscode/
