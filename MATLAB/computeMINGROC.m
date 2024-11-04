@@ -22,7 +22,7 @@ function [EG, mu, w, map3D] = computeMINGROC( ...
 %
 %       - mingrocOptions.m: The number of corrections to approximate the
 %       inverse Hessian matrix in the underlying L-BFGS optimization
-%       routine. Values < 3 are not recommended (6)
+%       routine. Values < 3 are not recommended (20)
 %
 %       - mingrocOptions.epsilon: Absolute tolerance for convergence test.
 %       Minimization terminates when the norm of the objective function
@@ -37,7 +37,7 @@ function [EG, mu, w, map3D] = computeMINGROC( ...
 %       This parameter determines the distance d to compute the rate of
 %       decrease of the objective function, f_{k-d}-f_k, where k is
 %       the current iteration step. If this parameter is zero, the
-%       delta-based convergence test will not be performed (1)
+%       delta-based convergence test will not be performed (0)
 %
 %       - mingrocOptions.delta: Delta for convergence test. Minimization
 %       terminates where |f_{k-d}-f_k| < delta * max(1, |f_k|, |f_{k-d}|)
@@ -73,11 +73,11 @@ function [EG, mu, w, map3D] = computeMINGROC( ...
 %       condition used by the the underlying L-BFGS optimization routine.
 %       Choices are 'none' (any step size is accepted), 'decrease'
 %       (any step size is accepted, so long as it decreases the energy) or
-%       'armijo' (a sufficient decrease requirement) ('armijo')
+%       'armijo' (a sufficient decrease requirement) ('decrease')
 %
 %       - mingrocOptions.maxLineSearch: The maximum number of iterations
 %       for the backtracking line search method. Optimization terminates if
-%       no valid step size can be found (20)
+%       no valid step size can be found (100)
 %
 %       - mingrocOptions.minStep: The minimup step length allowed in the
 %       line search. This value does not typically need to be modified
@@ -195,7 +195,6 @@ function [EG, mu, w, map3D] = computeMINGROC( ...
 %       - nniOptions.DataHessYY: #Vx3 matrix. Holds the analytic yy-Hessian
 %       of the surface 'finMap3D' with respect to the 2D parameterization
 %
-%
 %   OPTIONAL PARAMETERS (Name, Value)-pairs:
 %
 %       - ('FixedPointIDx', fixIDx = []): Vertex IDs of points that should
@@ -208,6 +207,10 @@ function [EG, mu, w, map3D] = computeMINGROC( ...
 %       - ('InitialMu', initMu = []): Initial guess for the Beltrami
 %       coefficient of the intial map guess. This can just be computed from
 %       the initial map.
+%
+%       - ('InterpMap', interpMap = []): The map used to construct the
+%       final surface interpolant. This should constitute a conformal
+%       parameterization. Default is x
 %
 %   OUTPUT PARAMETERS:
 %
@@ -325,22 +328,36 @@ end
 % Additional checks are performed in the C++ code
 
 if isfield(nniOptions, 'ghostMethod')
-    if strcmpi(nniOptions.ghostMethod, 'custom')
-        nniOptions.ghostMethod = 1;
-    elseif strcmpi(nniOptions.ghostMethod, 'circle')
-        nniOptions.ghostMethod = 2;
-    elseif strcmpi(nniOptions.ghostMethod, 'edge')
-        nniOptions.ghostMethod = 3;
+    if isscalar(nniOptions.ghostMethod)
+        assert(ismember(nniOptions.ghostMethod, [1 2 3]), ...
+            'Invalid ghost point generation procedure');
+    elseif ischar(nniOptions.ghostMethod)
+        if strcmpi(nniOptions.ghostMethod, 'custom')
+            nniOptions.ghostMethod = 1;
+        elseif strcmpi(nniOptions.ghostMethod, 'circle')
+            nniOptions.ghostMethod = 2;
+        elseif strcmpi(nniOptions.ghostMethod, 'edge')
+            nniOptions.ghostMethod = 3;
+        else
+            error('Invalid ghost point generation procedure');
+        end
     else
         error('Invalid ghost point generation procedure');
     end
 end
 
 if isfield(nniOptions, 'gradType')
-    if strcmpi(nniOptions.gradType, 'direct')
-        nniOptions.gradType = 1;
-    elseif strcmpi(nniOptions.gradType, 'iter')
-        nniOptions.gradType = 2;
+    if isscalar(nniOptions.gradType)
+        assert(ismember(nniOptions.gradType, [1 2]), ...
+            'Invalid derivative generation procedure');
+    elseif ischar(nniOptions.gradType)
+        if strcmpi(nniOptions.gradType, 'direct')
+            nniOptions.gradType = 1;
+        elseif strcmpi(nniOptions.gradType, 'iter')
+            nniOptions.gradType = 2;
+        else
+            error('Invalid derivative generation procedure');
+        end
     else
         error('Invalid derivative generation procedure');
     end
@@ -351,6 +368,7 @@ end
 fixIDx = [];
 initMap = [];
 initMu = [];
+interpMap = [];
 
 for i = 1:length(varargin)
     
@@ -368,6 +386,7 @@ for i = 1:length(varargin)
     
     if strcmpi(varargin{i}, 'InitialMap'), initMap = varargin{i+1}; end
     if strcmpi(varargin{i}, 'InitialMu'), initMu = varargin{i+1}; end
+    if strcmpi(varargin{i}, 'InterpMap'), interpMap = varargin{i+1}; end
          
 end
 
@@ -414,12 +433,23 @@ else
 
 end
 
+if isempty(interpMap)
+    interpMap = x;
+else
+    validateattributes(interpMap, {'numeric'}, {'2d', 'ncols', 2, ...
+        'finite', 'real', 'nrows', numV});
+    assert(max(sqrt(sum(interpMap.^2, 2))) < (1+100*eps), ...
+        ['2D parameterization used to construct the final surface ' ...
+        'interpolant does not appear to lie on the unit disk']);
+end
+
 %==========================================================================
 % RUN OPTIMIZATION
 %==========================================================================
 
 [EG, mu, w, map3D] = compute_mingroc( F, initMap3D, x, ...
-    mingrocOptions, nniOptions, initMu, initMap, finMap3D, fixIDx );
+    mingrocOptions, nniOptions, initMu, initMap, finMap3D, ...
+    fixIDx, interpMap );
 
 end
 
