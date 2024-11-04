@@ -41,9 +41,9 @@ void mexFunction( int nlhs, mxArray *plhs[],
   //-------------------------------------------------------------------------------------
 
   // Check for proper number of arguments
-  if ( nrhs != 8 ) {
+  if ( nrhs != 9 ) {
     mexErrMsgIdAndTxt( "MATLAB:compute_mingroc_energy:nargin",
-        "COMPUTE_MINGROC_ENERGY requires 8 input arguments" );
+        "COMPUTE_MINGROC_ENERGY requires 9 input arguments" );
   } else if ( nlhs != 3 ) {
     mexErrMsgIdAndTxt("MATLAB:compute_mingroc_energy:nargout",
         "COMPUTE_MINGROC_ENERGY requries 3 output arguments" );
@@ -69,10 +69,14 @@ void mexFunction( int nlhs, mxArray *plhs[],
   // The final 3D surface coordinates
   double *fMapIn = mxGetPr( prhs[7] );
 
+  // The map used to construct the final surface interpolant
+  double *interpMapIn = mxGetPr( prhs[8]);
+
   // Map input arrays to Eigen-style matrix
   MatrixXd V = Eigen::Map<MatrixXd>(vIn, numV, 3);
   MatrixXd x = Eigen::Map<MatrixXd>(xIn, numV, 2);
   MatrixXd finMap3D = Eigen::Map<MatrixXd>(fMapIn, numV, 3);
+  MatrixXd interpMap = Eigen::Map<MatrixXd>(interpMapIn, numV, 2);
 
   MatrixXd Fd = Eigen::Map<MatrixXd>(fIn, numF, 3);
   MatrixXi F = Fd.cast <int> ();
@@ -376,7 +380,8 @@ void mexFunction( int nlhs, mxArray *plhs[],
   MINGROCpp::MINGROC<double, int> mingroc(F, V, x, mingrocParam, nniParam);
 
   // Generate the final surface interpolant
-  NNIpp::NaturalNeighborInterpolant<double> NNI(x.col(0), x.col(1), finMap3D, nniParam);
+  NNIpp::NaturalNeighborInterpolant<double> NNI(
+    interpMap.col(0), interpMap.col(1), finMap3D, nniParam);
 
   // Calculate the energy
   MatrixXd map3D(numV, 3);

@@ -43,9 +43,9 @@ void mexFunction( int nlhs, mxArray *plhs[],
   //-------------------------------------------------------------------------------------
 
   // Check for proper number of arguments
-  if ( nrhs != 9 ) {
+  if ( nrhs != 10 ) {
     mexErrMsgIdAndTxt( "MATLAB:compute_mingroc:nargin",
-        "COMPUTE_MINGROC requires 9 input arguments" );
+        "COMPUTE_MINGROC requires 10 input arguments" );
   } else if ( nlhs != 4 ) {
     mexErrMsgIdAndTxt("MATLAB:compute_mingroc:nargout",
         "COMPUTE_MINGROC requries 4 output arguments" );
@@ -75,10 +75,14 @@ void mexFunction( int nlhs, mxArray *plhs[],
   double *fixIn = mxGetPr( prhs[8] );
   int numFixed = (int) mxGetM( prhs[8] );
 
+  // The mapping used to construct the final surface interpolant
+  double *interpMapIn = mxGetPr( prhs[9] );
+
   // Map input arrays to Eigen-style matrix
   MatrixXd V = Eigen::Map<MatrixXd>(vIn, numV, 3);
   MatrixXd x = Eigen::Map<MatrixXd>(xIn, numV, 2);
   MatrixXd finMap3D = Eigen::Map<MatrixXd>(fMapIn, numV, 3);
+  MatrixXd interpMap = Eigen::Map<MatrixXd>(interpMapIn, numV, 2);
 
   MatrixXd Fd = Eigen::Map<MatrixXd>(fIn, numF, 3);
   MatrixXi F = Fd.cast <int> ();
@@ -392,7 +396,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
 
   try {
 
-    mingroc( finMap3D, initMu, initW, fixIDx, E, mu, w, map3D );
+    mingroc( finMap3D, initMu, initW, interpMap, fixIDx, E, mu, w, map3D );
 
   } catch (const std::exception &e) {
 
