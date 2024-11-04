@@ -22,7 +22,7 @@
 #include <stdexcept>
 #include <iostream>
 
-#include <igl/fast_find_self_intersections.h>
+#include <igl/predicates/find_self_intersections.h>
 
 ///
 /// Line search by backtracking
@@ -68,14 +68,16 @@ void MINGROCpp::LineSearchBacktracking<Scalar, Index>::LineSearch(
   // Some helper variables to check for self-intersections
   // Why the hell do I need to know the column sizes at 
   // compile time here?
-  Eigen::Matrix<Scalar, Eigen::Dynamic, 3> nullEV = 
-    Eigen::Matrix<Scalar, Eigen::Dynamic, 3>::Zero(1,3);
+  // Eigen::Matrix<Scalar, Eigen::Dynamic, 3> nullEV = 
+  //  Eigen::Matrix<Scalar, Eigen::Dynamic, 3>::Zero(1,3);
   Eigen::Matrix<Index, Eigen::Dynamic, 2> nullIF =
     Eigen::Matrix<Index, Eigen::Dynamic, 2>::Zero(1,2);
-  Eigen::Matrix<Index, Eigen::Dynamic, 2> nullEE =
-    Eigen::Matrix<Index, Eigen::Dynamic, 2>::Zero(1,2);
-  Eigen::Matrix<Index, Eigen::Dynamic, 1> nullEI =
-    Eigen::Matrix<Index, Eigen::Dynamic, 1>::Zero(1,1);
+  Eigen::Array<bool, Eigen::Dynamic, 1> nullCP =
+    Eigen::Array<bool, Eigen::Dynamic, 1>::Constant(1, 1, false);
+  // Eigen::Matrix<Index, Eigen::Dynamic, 2> nullEE =
+  //  Eigen::Matrix<Index, Eigen::Dynamic, 2>::Zero(1,2);
+  // Eigen::Matrix<Index, Eigen::Dynamic, 1> nullEI =
+  //  Eigen::Matrix<Index, Eigen::Dynamic, 1>::Zero(1,1);
 
   // Some helper variables to calculate the energy
   Matrix map3D(numV, 3);
@@ -113,8 +115,12 @@ void MINGROCpp::LineSearchBacktracking<Scalar, Index>::LineSearch(
       Matrix w3D(numV, 3);
       w3D << w.real(), w.imag(), Vector::Zero(numV);
 
-      bool intersects = igl::fast_find_self_intersections(
-          w3D, mingroc.m_F, true, true, nullIF, nullEV, nullEE, nullEI);
+      // std::cout << "Checking for self-intersections... ";
+      // bool intersects = igl::predicates::find_self_intersections(
+      //    w3D, mingroc.m_F, nullIF, nullCP, nullEV, nullEE, nullEI);
+      bool intersects = igl::predicates::find_self_intersections(
+          w3D, mingroc.m_F, true, nullIF, nullCP);
+      // std::cout << (intersects ? "Found" : "Not found") << std::endl;
 
       validStep = validStep && (!intersects);
     }
