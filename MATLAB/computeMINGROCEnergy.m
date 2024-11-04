@@ -1,5 +1,5 @@
-function [EG, map3D, gamma] = computeMINGROCEnergy( ...
-    F, x, initMap3D, finMap3D, w, mu, mingrocOptions, nniOptions )
+function [EG, map3D, gamma] = computeMINGROCEnergy( F, x, initMap3D, ...
+    finMap3D, w, mu, mingrocOptions, nniOptions, varargin )
 %COMPUTEMINGROCENERGY Computes the minimum information growth energy
 %associated with a particular growth configuration (this is not an
 %optimization process - it just evaluates the energy)
@@ -29,7 +29,7 @@ function [EG, map3D, gamma] = computeMINGROCEnergy( ...
 %
 %       - mingrocOptions.m: The number of corrections to approximate the
 %       inverse Hessian matrix in the underlying L-BFGS optimization
-%       routine. Values < 3 are not recommended (6)
+%       routine. Values < 3 are not recommended (20)
 %
 %       - mingrocOptions.epsilon: Absolute tolerance for convergence test.
 %       Minimization terminates when the norm of the objective function
@@ -44,7 +44,7 @@ function [EG, map3D, gamma] = computeMINGROCEnergy( ...
 %       This parameter determines the distance d to compute the rate of
 %       decrease of the objective function, f_{k-d}-f_k, where k is
 %       the current iteration step. If this parameter is zero, the
-%       delta-based convergence test will not be performed (1)
+%       delta-based convergence test will not be performed (0)
 %
 %       - mingrocOptions.delta: Delta for convergence test. Minimization
 %       terminates where |f_{k-d}-f_k| < delta * max(1, |f_k|, |f_{k-d}|)
@@ -80,11 +80,11 @@ function [EG, map3D, gamma] = computeMINGROCEnergy( ...
 %       condition used by the the underlying L-BFGS optimization routine.
 %       Choices are 'none' (any step size is accepted), 'decrease'
 %       (any step size is accepted, so long as it decreases the energy) or
-%       'armijo' (a sufficient decrease requirement) ('armijo')
+%       'armijo' (a sufficient decrease requirement) ('decrease')
 %
 %       - mingrocOptions.maxLineSearch: The maximum number of iterations
 %       for the backtracking line search method. Optimization terminates if
-%       no valid step size can be found (20)
+%       no valid step size can be found (100)
 %
 %       - mingrocOptions.minStep: The minimup step length allowed in the
 %       line search. This value does not typically need to be modified
@@ -201,6 +201,12 @@ function [EG, map3D, gamma] = computeMINGROCEnergy( ...
 %
 %       - nniOptions.DataHessYY: #Vx3 matrix. Holds the analytic yy-Hessian
 %       of the surface 'finMap3D' with respect to the 2D parameterization
+%
+%   OPTIONAL PARAMETERS (Name, Value)-pairs:
+%
+%       - ('InterpMap', interpMap = []): The map used to construct the
+%       final surface interpolant. This should constitute a conformal
+%       parameterization. Default is x
 %
 %   OUTPUT PARAMETERS:
 %
@@ -319,25 +325,62 @@ end
 % Additional checks are performed in the C++ code
 
 if isfield(nniOptions, 'ghostMethod')
-    if strcmpi(nniOptions.ghostMethod, 'custom')
-        nniOptions.ghostMethod = 1;
-    elseif strcmpi(nniOptions.ghostMethod, 'circle')
-        nniOptions.ghostMethod = 2;
-    elseif strcmpi(nniOptions.ghostMethod, 'edge')
-        nniOptions.ghostMethod = 3;
+    if isscalar(nniOptions.ghostMethod)
+        assert(ismember(nniOptions.ghostMethod, [1 2 3]), ...
+            'Invalid ghost point generation procedure');
+    elseif ischar(nniOptions.ghostMethod)
+        if strcmpi(nniOptions.ghostMethod, 'custom')
+            nniOptions.ghostMethod = 1;
+        elseif strcmpi(nniOptions.ghostMethod, 'circle')
+            nniOptions.ghostMethod = 2;
+        elseif strcmpi(nniOptions.ghostMethod, 'edge')
+            nniOptions.ghostMethod = 3;
+        else
+            error('Invalid ghost point generation procedure');
+        end
     else
         error('Invalid ghost point generation procedure');
     end
 end
 
 if isfield(nniOptions, 'gradType')
-    if strcmpi(nniOptions.gradType, 'direct')
-        nniOptions.gradType = 1;
-    elseif strcmpi(nniOptions.gradType, 'iter')
-        nniOptions.gradType = 2;
+    if isscalar(nniOptions.gradType)
+        assert(ismember(nniOptions.gradType, [1 2]), ...
+            'Invalid derivative generation procedure');
+    elseif ischar(nniOptions.gradType)
+        if strcmpi(nniOptions.gradType, 'direct')
+            nniOptions.gradType = 1;
+        elseif strcmpi(nniOptions.gradType, 'iter')
+            nniOptions.gradType = 2;
+        else
+            error('Invalid derivative generation procedure');
+        end
     else
         error('Invalid derivative generation procedure');
     end
+end
+
+% Check Optional Inputs ---------------------------------------------------
+
+interpMap = [];
+
+for i = 1:length(varargin)
+    
+    if isa(varargin{i}, 'double'), continue; end
+    if isa(varargin{i}, 'logical'), continue; end
+
+    if strcmpi(varargin{i}, 'InterpMap'), interpMap = varargin{i+1}; end
+         
+end
+
+if isempty(interpMap)
+    interpMap = x;
+else
+    validateattributes(interpMap, {'numeric'}, {'2d', 'ncols', 2, ...
+        'finite', 'real', 'nrows', numV});
+    assert(max(sqrt(sum(interpMap.^2, 2))) < (1+100*eps), ...
+        ['2D parameterization used to construct the final surface ' ...
+        'interpolant does not appear to lie on the unit disk']);
 end
 
 % Process Quasiconformal Mapping ------------------------------------------
@@ -386,11 +429,11 @@ else
 end
 
 %==========================================================================
-% RUN OPTIMIZATION
+% COMPUTE MINGROC ENERGY
 %==========================================================================
 
 [EG, map3D, gamma] = compute_mingroc_energy( F, initMap3D, x, ...
-    mingrocOptions, nniOptions, mu, w, finMap3D );
+    mingrocOptions, nniOptions, mu, w, finMap3D, interpMap );
 
 end
 
