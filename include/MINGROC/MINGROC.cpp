@@ -1358,18 +1358,19 @@ MINGROC_INLINE void MINGROCpp::MINGROC<Scalar, Index>::convertRealToComplex(
 template <typename Scalar, typename Index>
 void MINGROCpp::MINGROC<Scalar, Index>::operator() (
     const Matrix &finMap3D, const CplxVector &initMu,
-    const CplxVector &initMap, const IndexVector &fixIDx,
-    Scalar &fx, CplxVector &mu, CplxVector &w, Matrix &map3D ) const
+    const CplxVector &initMap, const Matrix &interpMap,
+    const IndexVector &fixIDx, Scalar &fx, CplxVector &mu,
+    CplxVector &w, Matrix &map3D ) const
 {
 
   if ( m_param.minimizationMethod == MINIMIZATION_SIMULTANEOUS ) {
     
-    this->mingrocSimultaneous( finMap3D, initMu, initMap, fixIDx,
+    this->mingrocSimultaneous( finMap3D, initMu, initMap, interpMap, fixIDx,
         fx, mu, w, map3D );
 
   } else if ( m_param.minimizationMethod == MINIMIZATION_ALTERNATING ) {
 
-    this->mingrocAlternating( finMap3D, initMu, initMap, fixIDx,
+    this->mingrocAlternating( finMap3D, initMu, initMap, interpMap, fixIDx,
         fx, mu, w, map3D );
 
   } else {
@@ -1388,8 +1389,9 @@ void MINGROCpp::MINGROC<Scalar, Index>::operator() (
 template <typename Scalar, typename Index>
 void MINGROCpp::MINGROC<Scalar, Index>::mingrocSimultaneous(
     const Matrix &finMap3D, const CplxVector &initMu,
-    const CplxVector &initMap, const IndexVector &fixIDx,
-    Scalar &fx, CplxVector &mu, CplxVector &w, Matrix &map3D ) const
+    const CplxVector &initMap, const Matrix &interpMap,
+    const IndexVector &fixIDx, Scalar &fx, CplxVector &mu,
+    CplxVector &w, Matrix &map3D ) const
 {
 
   int numV = m_V.rows(); // Number of vertices 
@@ -1450,7 +1452,8 @@ void MINGROCpp::MINGROC<Scalar, Index>::mingrocSimultaneous(
 
   // Generate the final surface interpolant
   // NNIpp::NaturalNeighborInterpolant<Scalar> NNI(w.real(), w.imag(), finMap3D, m_nniParam);
-  NNIpp::NaturalNeighborInterpolant<Scalar> NNI(m_x.col(0), m_x.col(1), finMap3D, m_nniParam);
+  // NNIpp::NaturalNeighborInterpolant<Scalar> NNI(m_x.col(0), m_x.col(1), finMap3D, m_nniParam);
+  NNIpp::NaturalNeighborInterpolant<Scalar> NNI(interpMap.col(0), interpMap.col(1), finMap3D, m_nniParam);
   NNI( w.real(), w.imag(), map3D );
 
   // Fixed point processing -------------------------------------------------------------
@@ -1741,8 +1744,9 @@ void MINGROCpp::MINGROC<Scalar, Index>::mingrocSimultaneous(
 template <typename Scalar, typename Index>
 void MINGROCpp::MINGROC<Scalar, Index>::mingrocAlternating(
     const Matrix &finMap3D, const CplxVector &initMu,
-    const CplxVector &initMap, const IndexVector &fixIDx,
-    Scalar &fx, CplxVector &mu, CplxVector &w, Matrix &map3D ) const
+    const CplxVector &initMap, const Matrix &interpMap,
+    const IndexVector &fixIDx, Scalar &fx, CplxVector &mu,
+    CplxVector &w, Matrix &map3D ) const
 {
 
   int numV = m_V.rows(); // Number of vertices 
@@ -1802,7 +1806,8 @@ void MINGROCpp::MINGROC<Scalar, Index>::mingrocAlternating(
 
   // Generate the final surface interpolant
   // NNIpp::NaturalNeighborInterpolant<Scalar> NNI(w.real(), w.imag(), finMap3D, m_nniParam);
-  NNIpp::NaturalNeighborInterpolant<Scalar> NNI(m_x.col(0), m_x.col(1), finMap3D, m_nniParam);
+  // NNIpp::NaturalNeighborInterpolant<Scalar> NNI(m_x.col(0), m_x.col(1), finMap3D, m_nniParam);
+  NNIpp::NaturalNeighborInterpolant<Scalar> NNI(interpMap.col(0), interpMap.col(1), finMap3D, m_nniParam);
   NNI( w.real(), w.imag(), map3D );
 
   // Fixed point processing -------------------------------------------------------------
