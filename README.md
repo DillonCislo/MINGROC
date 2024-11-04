@@ -5,11 +5,11 @@ Compute a "minimum information" constant growth pattern between two surfaces. A 
 
 The paper develops a theoretical and computational framework that allows for the quantitative characterization of different developmental trajectories of two-dimensional tissues forming three-dimensional structures. Using this framework, the problem of growth pattern selection can be framed as an optimization problem and solved for optimal growth patterns linking initial and target shapes. In particular we explore the simple optimality principle:
 
-$$\mathcal{S} = \lambda \, D_{SEM} + \int_0^T dt \, \int_{\mathcal{B}} dA(t) \, \, \left[ c_1 \, |\nabla {\Gamma}|^2 + c_2 \, |\nabla \gamma|^2 + c_3 \, \dot{\Gamma}^2 + c_4 \, |\dot{\gamma}|^2 \right],$$
+$$\mathcal{S} = \lambda  D_{SEM} + \int_0^T dt  \int_{\mathcal{B}} dA(t)  \left[ c_1 |\nabla {\Gamma}|^2 + c_2 |\nabla \gamma|^2 + c_3  \dot{\Gamma}^2 + c_4 |\dot{\gamma}|^2 \right],$$
 
 where $\Gamma$ is the relative rate of local area growth and $\gamma$ is the relative rate of change of local deformation anisotropy. The first term is an enpoint cost that ensures the growth pattern ends up generating the correct target shape. This is a really hard computational problem to solve so, for simplicity, we focus on the special case of "constant growth", i.e. $\dot{\Gamma} = \dot{\gamma} = 0$. After some additional simplifications we arrive at the modified constant growth functional:
 
-$$\mathcal{S} \sim \int_{\mathcal{B}} dA(t = 0) \, \, \left[ c_1 \, |\nabla {\Gamma}|^2 + c_2 \,|\nabla \gamma|^2 \right].$$
+$$\mathcal{S} \sim \int_{\mathcal{B}} dA(t = 0)  \left[ c_1  |\nabla {\Gamma}|^2 + c_2 |\nabla \gamma|^2 \right].$$
 
 Basically we are finding the smoothest pattern than can be coded into the tissue at the start of the growth process and then let run to generate the final shape. For constant growth patterns we can also ensure that the target shape constraint is satisfied by construction without an explicit endpoint cost. For more details please see the paper, specifically Section III and Appendix B.
 
