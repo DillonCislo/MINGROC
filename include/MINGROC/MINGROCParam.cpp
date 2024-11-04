@@ -28,19 +28,19 @@
 template <typename Scalar>
 MINGROCpp::MINGROCParam<Scalar>::MINGROCParam() {
 
-  m = 6;
+  m = 20;
   epsilon = Scalar(1e-5);
   epsilonRel = Scalar(1e-5);
-  past = 1;
+  past = 0;
   delta = Scalar(1e-10);
   maxIterations = 0;
   minimizationMethod = MINIMIZATION_SIMULTANEOUS;
   numGrowthIterations = 1;
   numMuIterations = 1;
   tCoef = Scalar(1.0);
-  lineSearchTermination = LINE_SEARCH_TERMINATION_ARMIJO;
+  lineSearchTermination = LINE_SEARCH_TERMINATION_DECREASE;
   lineSearchMethod = LINE_SEARCH_BACKTRACKING;
-  maxLineSearch = 20;
+  maxLineSearch = 100;
   minStep = Scalar(1e-20);
   maxStep = Scalar(1e20);
   ftol = Scalar(1e-4);
