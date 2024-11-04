@@ -13,3 +13,9 @@
 [submodule "include/external/RicciFlow_MATLAB"]
 	path = include/external/RicciFlow_MATLAB
 	url = https://github.com/DillonCislo/RicciFlow_MATLAB.git
+[submodule "include/external/mesh2d"]
+	path = include/external/mesh2d
+	url = https://github.com/dengwirda/mesh2d.git
+[submodule "include/external/BrewerMap"]
+	path = include/external/BrewerMap
+	url = https://github.com/DrosteEffect/BrewerMap.git
