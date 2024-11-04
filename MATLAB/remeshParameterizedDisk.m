@@ -36,6 +36,14 @@ function [F, V, x] = remeshParameterizedDisk(F0, V0, x0, varargin)
 %       - ('NumIterations2D', numIter2D = 32): The number of iterations
 %       allowed by the 'smooth2' routine.
 %
+%       - ('ZeroPoint3D', zeroPt3D = []): The location of the point in the
+%       bulk of the mesh that will be conformally mapped to (0,0) in the
+%       pullback space
+%
+%       - ('OnePoint3D', onePt3D = []): The location of the point on the
+%       boundary of the mesh that will be conformally mapped to (1,0) in
+%       the pullback space
+%
 %       - ('Display', dispType = false): Whether or not to display progress
 %
 %   OUTPUT PARAMETERS:
@@ -159,7 +167,7 @@ if (isempty(x0) || newParam || ~isempty(tarLength3D))
     % If no target length is supplied, we set it to the minimum edge length
     % in the 3D mesh
     if isempty(tarLength3D)
-        tarLength3D = min(edge_lengths(V0, E0));
+        tarLength3D = min(edgeLengths(V0, E0));
     end
     
     % Remesh 3D surface
@@ -167,15 +175,15 @@ if (isempty(x0) || newParam || ~isempty(tarLength3D))
         tarLength3D, numIter3D, protectConstraints);
     
     % Try to delaunayize the 3D surface
-    if ~all(all(is_intrinsic_delaunay(V, F)))
-        if dispType
-            fprintf('Trying to Delaunayize 3D mesh... ')
-        end
-        [V, F] = delaunayize(V, F, 'SplitEdges', false);
-        if dispType
-            fprintf('Done\n')
-        end
-    end
+    % if ~all(all(is_intrinsic_delaunay(V, F)))
+    %     if dispType
+    %         fprintf('Trying to Delaunayize 3D mesh... ')
+    %     end
+    %     [V, F] = delaunayize(V, F, 'SplitEdges', false);
+    %     if dispType
+    %         fprintf('Done\n')
+    %     end
+    % end
     
     bdyIDx = freeBoundary(triangulation(F, V));
     bdyIDx = bdyIDx(:,1);
@@ -217,7 +225,7 @@ else
 end
 
 % Find the minimum boundary edge length in the 2D parameterization
-minBdyLength = min(edge_lengths(x, freeBoundary(triangulation(F,x))));
+minBdyLength = min(edgeLengths(x, freeBoundary(triangulation(F,x))));
 
 % Set natural neighbor interpolation options
 nniOptions = struct();
@@ -242,7 +250,7 @@ edge = [edge, circshift(edge, [-1 0])];
 % Generate the edge size constraint function
 E = edges(triangulation(F,x));
 emp2D = (x(E(:,1), :) + x(E(:,2), :)) ./ 2;
-l2D = edge_lengths(x, E);
+l2D = edgeLengths(x, E);
 edgeInterp = scatteredInterpolant(emp2D(:,1), emp2D(:,2), l2D, ...
     'natural', 'linear');
 hfun = @(x) edgeInterp(x(:,1), x(:,2));
@@ -251,17 +259,22 @@ hfun = @(x) edgeInterp(x(:,1), x(:,2));
 opts = struct();
 opts.kind = 'delfront';
 opts.rho2 = 1;
+if dispType
+    opts.disp = 4;
+else
+    opts.disp = Inf;
+end
 
 [vert, ~, tria, tnum] = refine2(node, edge, [], opts, hfun);
 
 % Set smoothing options
 opts = struct();
-opts.VTOL = vtol;
-opts.ITER = numIter2D;
+opts.vtol = vtol;
+opts.iter = numIter2D;
 if dispType
-    opts.Iter = 4;
+    opts.disp = 4;
 else
-    opts.Iter = Inf;
+    opts.disp = Inf;
 end
 [x, ~, F, ~] = smooth2(vert, [], tria, tnum, opts);
 
