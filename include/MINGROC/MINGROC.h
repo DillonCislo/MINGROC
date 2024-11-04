@@ -253,6 +253,9 @@ namespace MINGROCpp {
       ///   initMap   #V by 1 complex representation of the quasiconformal
       ///             mapping specified by 'initMu'
       ///
+      ///   interpMap #V by 2 list of 2D vertex coordinates used to construct
+      ///             the final surface interpolant (default is 'x')
+      ///
       ///   fixIDx    #P by 1 list of vertex IDs that are to be fixed under the
       ///             quasiconformal mapping
       ///
@@ -272,8 +275,9 @@ namespace MINGROCpp {
       ///         corresponding to the minimum information constant growth pattern
       ///
       void operator() ( const Matrix &finMap3D, const CplxVector &initMu,
-          const CplxVector &initMap, const IndexVector &fixIDx,
-          Scalar &EG, CplxVector &mu, CplxVector &w, Matrix &map3D ) const;
+          const CplxVector &initMap, const Matrix &interpMap,
+          const IndexVector &fixIDx, Scalar &EG, CplxVector &mu,
+          CplxVector &w, Matrix &map3D ) const;
 
       ///
       /// Calculate the minimum information constant growth pattern for a
@@ -291,6 +295,9 @@ namespace MINGROCpp {
       ///
       ///   initMap   #V by 1 complex representation of the quasiconformal
       ///             mapping specified by 'initMu'
+      ///
+      ///   interpMap #V by 2 list of 2D vertex coordinates used to construct
+      ///             the final surface interpolant (default is 'x')
       ///
       ///   fixIDx    #P by 1 list of vertex IDs that are to be fixed under the
       ///             quasiconformal mapping
@@ -311,8 +318,9 @@ namespace MINGROCpp {
       ///         corresponding to the minimum information constant growth pattern
       ///
       void mingrocSimultaneous( const Matrix &finMap3D, const CplxVector &initMu,
-          const CplxVector &initMap, const IndexVector &fixIDx,
-          Scalar &EG, CplxVector &mu, CplxVector &w, Matrix &map3D ) const;
+          const CplxVector &initMap, const Matrix &interpMap,
+          const IndexVector &fixIDx, Scalar &EG, CplxVector &mu,
+          CplxVector &w, Matrix &map3D ) const;
 
       ///
       /// Calculate the minimum information constant growth pattern for a
@@ -333,6 +341,9 @@ namespace MINGROCpp {
       ///   initMap   #V by 1 complex representation of the quasiconformal
       ///             mapping specified by 'initMu'
       ///
+      ///   interpMap #V by 2 list of 2D vertex coordinates used to construct
+      ///             the final surface interpolant (default is 'x')
+      ///
       ///   fixIDx    #P by 1 list of vertex IDs that are to be fixed under the
       ///             quasiconformal mapping
       ///
@@ -352,8 +363,9 @@ namespace MINGROCpp {
       ///         corresponding to the minimum information constant growth pattern
       ///
       void mingrocAlternating( const Matrix &finMap3D, const CplxVector &initMu,
-          const CplxVector &initMap, const IndexVector &fixIDx,
-          Scalar &EG, CplxVector &mu, CplxVector &w, Matrix &map3D ) const;
+          const CplxVector &initMap, const Matrix &interpMap,
+          const IndexVector &fixIDx, Scalar &EG, CplxVector &mu,
+          CplxVector &w, Matrix &map3D ) const;
 
       ///
       /// Calculate the MINGROC energy functional for a given configuration
